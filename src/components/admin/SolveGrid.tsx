@@ -1,0 +1,199 @@
+import React, { useState } from 'react';
+import { PenaltyType, Solve } from '@/types/tournament';
+import { useTournamentStore } from '@/store/tournamentStore';
+import { formatPoints, formatTime } from '@/utils/formatters';
+
+export const SolveGrid: React.FC = () => {
+  const { sets, players, settings, applyPenalty, totalPoints, setWins } = useTournamentStore();
+  const [selectedCell, setSelectedCell] = useState<{
+    gameId: string;
+    playerId: string;
+    currentPenalty: PenaltyType;
+    timeMs: number;
+  } | null>(null);
+
+  const activePlayers = players.filter((p) => p.active);
+
+  // Flatten all games across all sets for the matrix columns
+  const allGames = sets.flatMap((s) =>
+    s.games.map((g) => ({
+      ...g,
+      label: `S${s.setIndex + 1}-G${g.gameIndex + 1}`,
+    }))
+  );
+
+  const handlePenaltySelect = (penalty: PenaltyType) => {
+    if (!selectedCell) return;
+    applyPenalty(selectedCell.gameId, selectedCell.playerId, penalty);
+    setSelectedCell(null);
+  };
+
+  return (
+    <div className="w-full flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-black uppercase text-white tracking-wider">
+            Solve Matrix & Penalty Enforcement
+          </h3>
+          <p className="text-xs text-neutral-400">
+            Click any recorded solve cell to apply official speedcubing penalties (+2.00s or DNF). Points recalculate in real-time.
+          </p>
+        </div>
+      </div>
+
+      {/* Grid Table Container */}
+      <div className="w-full overflow-x-auto rounded-2xl border border-neutral-800 bg-neutral-950/90 shadow-inner">
+        <table className="w-full text-left text-xs font-mono border-collapse">
+          <thead>
+            <tr className="border-b border-neutral-800 bg-neutral-900/80 text-neutral-400">
+              <th className="py-3 px-4 sticky left-0 bg-neutral-900 z-10 font-bold uppercase tracking-wider min-w-[140px]">
+                Player / Team
+              </th>
+              {allGames.map((g) => (
+                <th key={g.id} className="py-3 px-3 text-center border-l border-neutral-800/60 min-w-[90px]">
+                  <span className="font-bold text-neutral-300">{g.label}</span>
+                  {g.completed && <span className="block text-[10px] text-emerald-400">Done</span>}
+                </th>
+              ))}
+              <th className="py-3 px-4 text-center border-l border-neutral-800 bg-neutral-900/90 font-bold uppercase text-amber-400 min-w-[100px]">
+                Total Pts
+              </th>
+              <th className="py-3 px-4 text-center border-l border-neutral-800 bg-neutral-900/90 font-bold uppercase text-neutral-300 min-w-[80px]">
+                Sets Won
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {activePlayers.map((player) => (
+              <tr key={player.id} className="border-b border-neutral-800/60 hover:bg-neutral-900/40 transition-colors">
+                {/* Player Column */}
+                <td className="py-3 px-4 sticky left-0 bg-neutral-950/95 z-10 border-r border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-md bg-neutral-900 border border-neutral-700 flex items-center justify-center font-bold text-[11px] text-neutral-300">
+                      {player.key.toUpperCase()}
+                    </span>
+                    <div>
+                      <span className={`font-black ${player.color} text-sm`}>{player.name}</span>
+                      {player.team && <span className="block text-[10px] text-neutral-500">{player.team}</span>}
+                    </div>
+                  </div>
+                </td>
+
+                {/* Game Cells */}
+                {allGames.map((g) => {
+                  const solve: Solve | undefined = g.solves[player.id];
+                  const hasSolve = !!solve && solve.rawTimeMs > 0;
+
+                  return (
+                    <td
+                      key={g.id}
+                      className="py-2.5 px-2 text-center border-l border-neutral-800/60 transition-colors"
+                    >
+                      {hasSolve ? (
+                        <button
+                          onClick={() =>
+                            setSelectedCell({
+                              gameId: g.id,
+                              playerId: player.id,
+                              currentPenalty: solve.penalty,
+                              timeMs: solve.finalTimeMs,
+                            })
+                          }
+                          className={`w-full py-1.5 px-1.5 rounded-lg border text-center transition-all hover:scale-105 active:scale-95 ${
+                            solve.penalty === 'DNF'
+                              ? 'bg-red-950/60 border-red-500/60 text-red-300'
+                              : solve.penalty === 'PLUS_2'
+                              ? 'bg-orange-950/60 border-orange-500/60 text-orange-300'
+                              : 'bg-neutral-900/80 border-neutral-700 text-neutral-200 hover:border-amber-400/60'
+                          }`}
+                        >
+                          <div className="font-bold text-xs">
+                            {formatTime(solve.finalTimeMs, { penalty: solve.penalty })}
+                          </div>
+                          <div className="text-[10px] text-neutral-400 flex items-center justify-center gap-1 mt-0.5">
+                            <span className="text-amber-400">+{solve.score}p</span>
+                            <span>(#{solve.rank})</span>
+                          </div>
+                        </button>
+                      ) : (
+                        <span className="text-neutral-600">--</span>
+                      )}
+                    </td>
+                  );
+                })}
+
+                {/* Total Points */}
+                <td className="py-3 px-4 text-center border-l border-neutral-800 font-black text-amber-400 bg-neutral-900/20 text-sm">
+                  {formatPoints(totalPoints[player.id] || 0, settings.scoringMode)}
+                </td>
+
+                {/* Sets Won */}
+                <td className="py-3 px-4 text-center border-l border-neutral-800 font-bold text-white bg-neutral-900/20">
+                  {setWins[player.id] || 0}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Penalty Action Modal */}
+      {selectedCell && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-neutral-900 border border-neutral-700 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="text-center">
+              <h4 className="text-sm font-black uppercase text-white tracking-wider">
+                Official Penalty Enforcement
+              </h4>
+              <p className="text-xs text-neutral-400 mt-1">
+                Apply a penalty for solve: {formatTime(selectedCell.timeMs)}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => handlePenaltySelect('NONE')}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-mono font-bold transition-all ${
+                  selectedCell.currentPenalty === 'NONE'
+                    ? 'bg-emerald-600 text-white border-emerald-500'
+                    : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:bg-neutral-700'
+                }`}
+              >
+                CLEAR / OK
+              </button>
+
+              <button
+                onClick={() => handlePenaltySelect('PLUS_2')}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-mono font-bold transition-all ${
+                  selectedCell.currentPenalty === 'PLUS_2'
+                    ? 'bg-orange-600 text-white border-orange-500'
+                    : 'bg-neutral-800 text-orange-300 border-neutral-700 hover:bg-orange-950/60'
+                }`}
+              >
+                +2.00s
+              </button>
+
+              <button
+                onClick={() => handlePenaltySelect('DNF')}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-mono font-bold transition-all ${
+                  selectedCell.currentPenalty === 'DNF'
+                    ? 'bg-red-600 text-white border-red-500'
+                    : 'bg-neutral-800 text-red-300 border-neutral-700 hover:bg-red-950/60'
+                }`}
+              >
+                DNF
+              </button>
+            </div>
+
+            <button
+              onClick={() => setSelectedCell(null)}
+              className="w-full py-2 text-xs text-neutral-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
