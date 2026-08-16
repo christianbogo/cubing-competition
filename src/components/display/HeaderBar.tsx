@@ -58,23 +58,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
       {/* Actions */}
       <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* Match Overview Button - Always visible in match */}
+        {matchStatus === 'IN_PROGRESS' && (
+          <button
+            onClick={onOpenOverview}
+            title="Show Full Match Overview & Solve Matrix"
+            className="flex items-center px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-mono transition-all active:scale-95 shadow-sm"
+          >
+            <span className="hidden md:inline">Match Overview</span>
+            <Trophy className="w-3.5 h-3.5 inline md:hidden" />
+          </button>
+        )}
+
         {/* Theme Switcher - Hidden in Fullscreen Mode */}
         {!isFullscreen && <ThemeToggle />}
 
-        {/* Hide Keybinds, Volume, and Feed toggle in Fullscreen mode */}
+        {/* Hide Keybinds, Volume in Fullscreen mode */}
         {!isFullscreen && (
           <>
             {matchStatus === 'IN_PROGRESS' && (
               <>
-                {/* Match Overview Button */}
-                <button
-                  onClick={onOpenOverview}
-                  title="Show Full Match Overview & Solve Matrix"
-                  className="flex items-center px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-mono transition-all active:scale-95 shadow-sm"
-                >
-                  <span className="hidden md:inline">Match Overview</span>
-                </button>
-
                 {/* Key Guide Button */}
                 <button
                   onClick={onOpenKeyGuide}

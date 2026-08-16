@@ -164,7 +164,7 @@ export function useBotController() {
           const currentBotTimer = useTimerStore.getState().players[bot.id];
 
           if (currentRaceState === 'RACING' && currentBotTimer?.isRunning && !currentBotTimer.isFinished) {
-            const rank = stopPlayer(bot.id, finishTimestamp);
+            const rank = stopPlayer(bot.id, finishTimestamp, sim.penalty);
             if (rank > 0) {
               soundEngine.playFinishChime(rank);
               const tp = useTimerStore.getState().players[bot.id];

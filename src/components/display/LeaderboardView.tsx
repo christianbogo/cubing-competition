@@ -52,10 +52,10 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
 
     players.forEach((p) => {
       const timesMs: number[] = [];
-      sets.forEach((s) => {
-        s.games.forEach((g) => {
-          g.rounds.forEach((r) => {
-            const solve = r.solves[p.id];
+      sets?.forEach((s) => {
+        s.games?.forEach((g) => {
+          g.rounds?.forEach((r) => {
+            const solve = r.solves?.[p.id];
             if (solve && !solve.isDNF && solve.finalTimeMs > 0 && r.completed) {
               timesMs.push(solve.finalTimeMs);
             }
@@ -127,40 +127,29 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
     finishedList.forEach((item, idx) => {
       const rank = idx + 1;
       ranks[item.playerId] = rank;
-
       if (settings.scoringMode === 'RANK_BASED') {
         roundScores[item.playerId] = item.isDNF
-          ? 1
+          ? 0
           : Math.max(1, totalActive - (rank - 1)) +
             (rank === 1 ? settings.firstPlaceBonus : 0);
       } else {
         roundScores[item.playerId] = item.isDNF
-          ? 300
-          : Math.max(
-              0,
-              Math.round(((item.effectiveTimeMs - fastestMs) / 1000) * 100)
-            );
+          ? (settings.differentialDNFScore ?? 300)
+          : Math.max(0, Math.round(((item.effectiveTimeMs - fastestMs) / 1000) * 100));
       }
     });
-
     return { ranks, roundScores };
   }, [activePlayers, timerPlayers, currentGameSolves, raceState, settings, totalActive]);
 
-  // Helper to calculate instant live round score when a player finishes
   const getLivePlayerScoreData = (playerId: string) => {
     const tp = timerPlayers[playerId];
     const solve = currentGameSolves[playerId];
     const storedLastScore = lastRoundScores[playerId];
     const baseGamePoints = currentGamePoints[playerId] || 0;
-
     if (raceState === 'FINISHED' || solve?.completedAt) {
       const finalScore = liveRanksAndScores.roundScores[playerId] ?? solve?.score ?? storedLastScore;
-      return {
-        gamePoints: baseGamePoints,
-        roundAdd: finalScore,
-      };
+      return { gamePoints: baseGamePoints, roundAdd: finalScore };
     }
-
     if (raceState === 'RACING' && tp?.isFinished && tp.finishTimeMs !== null) {
       const instantScore = liveRanksAndScores.roundScores[playerId] || 0;
       return {
@@ -168,86 +157,62 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
         roundAdd: instantScore,
       };
     }
-
-    return {
-      gamePoints: baseGamePoints,
-      roundAdd: undefined,
-    };
+    if (storedLastScore !== undefined && storedLastScore > 0) {
+      return { gamePoints: baseGamePoints, roundAdd: storedLastScore };
+    }
+    return { gamePoints: baseGamePoints, roundAdd: undefined };
   };
 
-  // Calculate differential lead gaps for players & teams
   const differentialData = useMemo(() => {
     if (settings.scoringMode !== 'DIFFERENTIAL') {
       return { playerFractions: {}, redTeamFraction: undefined, blueTeamFraction: undefined };
     }
-
-    const targetGap = settings.differentialGapThreshold || 500;
+    const threshold = settings.differentialGapThreshold || 500;
     const playerFractions: Record<string, string> = {};
-
-    // For Free For All:
-    // Gather all active players' live game points
-    const playerScores = activePlayers.map((p) => {
-      const { gamePoints } = getLivePlayerScoreData(p.id);
-      return { id: p.id, points: gamePoints };
-    });
-
-    // In differential scoring, lower score is better (1st place has lowest points)
-    playerScores.sort((a, b) => a.points - b.points);
-
-    if (playerScores.length >= 2) {
-      const leader = playerScores[0];
-      const second = playerScores[1];
-      const gap = Math.max(0, second.points - leader.points);
-      // Only the leader gets the green fraction
-      playerFractions[leader.id] = `${gap}/${targetGap}`;
+    if (!isTeamMode) {
+      const activeIds = activePlayers.map((p) => p.id);
+      const pointsArray = activeIds.map((id) => currentGamePoints[id] || 0);
+      const minPoints = Math.min(...pointsArray);
+      activePlayers.forEach((player) => {
+        const pPoints = currentGamePoints[player.id] || 0;
+        const otherPoints = activeIds.filter((id) => id !== player.id).map((id) => currentGamePoints[id] || 0);
+        const secondLowest = otherPoints.length > 0 ? Math.min(...otherPoints) : pPoints;
+        if (pPoints === minPoints && secondLowest > pPoints) {
+          const leadGap = secondLowest - pPoints;
+          playerFractions[player.id] = `${leadGap}/${threshold}`;
+        }
+      });
+      return { playerFractions, redTeamFraction: undefined, blueTeamFraction: undefined };
+    } else {
+      const redPts = teamGamePoints.RED || 0;
+      const bluePts = teamGamePoints.BLUE || 0;
+      let redFraction: string | undefined = undefined;
+      let blueFraction: string | undefined = undefined;
+      if (redPts < bluePts) {
+        const lead = bluePts - redPts;
+        redFraction = `${lead}/${threshold}`;
+      } else if (bluePts < redPts) {
+        const lead = redPts - bluePts;
+        blueFraction = `${lead}/${threshold}`;
+      }
+      return { playerFractions: {} as Record<string, string>, redTeamFraction: redFraction, blueTeamFraction: blueFraction };
     }
+  }, [settings.scoringMode, settings.differentialGapThreshold, isTeamMode, activePlayers, currentGamePoints, teamGamePoints]);
 
-    // For Teams:
-    let redTeamFraction: string | undefined = undefined;
-    let blueTeamFraction: string | undefined = undefined;
-
-    const redPts = teamGamePoints.RED || 0;
-    const bluePts = teamGamePoints.BLUE || 0;
-
-    if (redPts < bluePts) {
-      const gap = bluePts - redPts;
-      redTeamFraction = `${gap}/${targetGap}`;
-    } else if (bluePts < redPts) {
-      const gap = redPts - bluePts;
-      blueTeamFraction = `${gap}/${targetGap}`;
-    }
-
-    return { playerFractions, redTeamFraction, blueTeamFraction };
-  }, [
-    settings.scoringMode,
-    settings.differentialGapThreshold,
-    activePlayers,
-    timerPlayers,
-    currentGameSolves,
-    raceState,
-    lastRoundScores,
-    currentGamePoints,
-    teamGamePoints,
-    liveRanksAndScores,
-  ]);
-
-  // Helper to render an individual player card
   const renderPlayerCard = (player: Player, index: number) => {
     const themedPlayer = getPlayerWithTheme(player, index);
     const tp = timerPlayers[player.id];
-    const solve = currentGameSolves[player.id];
-    const isSolveFromCurrentRound = solve?.roundIndex === currentRoundIndex;
-    const currentRoundSolve = isSolveFromCurrentRound ? solve : undefined;
+    const isSolveFromCurrentRound = currentGameSolves[player.id]?.roundIndex === currentRoundIndex;
+    const currentRoundSolve = isSolveFromCurrentRound ? currentGameSolves[player.id] : undefined;
 
-    // Find the latest recorded solve for this player across all completed rounds in sets
     let lastCompletedSolve: Solve | undefined = undefined;
-    for (let sIdx = sets.length - 1; sIdx >= 0; sIdx--) {
+    for (let sIdx = (sets?.length || 0) - 1; sIdx >= 0; sIdx--) {
       const s = sets[sIdx];
-      for (let gIdx = s.games.length - 1; gIdx >= 0; gIdx--) {
+      for (let gIdx = (s.games?.length || 0) - 1; gIdx >= 0; gIdx--) {
         const g = s.games[gIdx];
-        for (let rIdx = g.rounds.length - 1; rIdx >= 0; rIdx--) {
+        for (let rIdx = (g.rounds?.length || 0) - 1; rIdx >= 0; rIdx--) {
           const r = g.rounds[rIdx];
-          if (r.completed && r.solves[player.id]) {
+          if (r.completed && r.solves?.[player.id]) {
             lastCompletedSolve = r.solves[player.id];
             break;
           }
@@ -256,53 +221,23 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
       }
       if (lastCompletedSolve) break;
     }
-
     const currentSet = sets[currentSetIndex];
     const currentGame = currentSet?.games[currentGameIndex];
     const isGameWinner = !!currentGame?.completed && (isTeamMode ? currentGame.winnerTeam === player.team : currentGame.winnerId === player.id);
     const isSetWinner = !!currentSet?.completed && (isTeamMode ? currentSet.winnerTeam === player.team : currentSet.winnerId === player.id);
-
     const isCurrentlyRunning = raceState === 'RACING' && tp?.isRunning && !tp?.isFinished;
     const isFinishedThisRound = tp?.isFinished && tp.finishTimeMs !== null;
     const isSolveRecorded = raceState === 'FINISHED' && currentRoundSolve?.completedAt !== undefined;
-    const isHoldingReady = tp?.isHeld || false;
-
-    const isStandbyWithReference =
-      raceState !== 'RACING' &&
-      !tp?.isRunning &&
-      !tp?.isFinished &&
-      !isHoldingReady &&
-      ((tp?.lastFinishTimeMs !== null && tp?.lastFinishTimeMs !== undefined) || lastCompletedSolve !== undefined);
-
+    const isStandbyWithReference = raceState !== 'RACING' && !tp?.isRunning && !tp?.isFinished && ((tp?.lastFinishTimeMs !== null && tp?.lastFinishTimeMs !== undefined) || lastCompletedSolve !== undefined);
     const isFinishedDisplay = isFinishedThisRound || isSolveRecorded;
-
-    // Penalty resolution:
-    // When holding ready or racing -> 'NONE'
-    // When finished this round -> currentRoundSolve penalty
-    // When on standby waiting for next solve -> lastCompletedSolve penalty (e.g. DNF persists)
-    const penalty: PenaltyType = isHoldingReady || isCurrentlyRunning
-      ? 'NONE'
-      : isFinishedDisplay
-      ? (currentRoundSolve?.penalty || 'NONE')
-      : isStandbyWithReference
-      ? (lastCompletedSolve?.penalty || 'NONE')
-      : 'NONE';
-
-    const fsDelta = isHoldingReady || isCurrentlyRunning
-      ? 0
-      : (tp?.falseStartDeltaMs || (isFinishedDisplay ? currentRoundSolve?.falseStartDeltaMs : lastCompletedSolve?.falseStartDeltaMs) || 0);
+    const penalty: PenaltyType = isCurrentlyRunning ? 'NONE' : isFinishedDisplay ? (currentRoundSolve?.penalty || tp?.penalty || 'NONE') : isStandbyWithReference ? (tp?.lastPenalty || lastCompletedSolve?.penalty || 'NONE') : 'NONE';
+    const fsDelta = isCurrentlyRunning ? 0 : (tp?.falseStartDeltaMs || (isFinishedDisplay ? currentRoundSolve?.falseStartDeltaMs : lastCompletedSolve?.falseStartDeltaMs) || 0);
     const fsPenaltyMs = fsDelta * settings.falseStartMultiplier;
     const plus2PenaltyMs = penalty === 'PLUS_2' ? 2000 : 0;
-
     let displayTimeMs = 0;
     let displayRank: number | undefined = undefined;
     let isDisplayFinished = false;
-
-    if (isHoldingReady) {
-      displayTimeMs = 0;
-      displayRank = undefined;
-      isDisplayFinished = false;
-    } else if (isCurrentlyRunning) {
+    if (isCurrentlyRunning) {
       displayTimeMs = tp?.rawTimeMs || 0;
       displayRank = undefined;
       isDisplayFinished = false;
@@ -319,10 +254,8 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
       displayRank = tp?.lastFinishRank ?? lastCompletedSolve?.rank ?? undefined;
       isDisplayFinished = true;
     }
-
     const { gamePoints, roundAdd } = getLivePlayerScoreData(player.id);
     const isCardClickable = raceState === 'FINISHED' && isFinishedDisplay;
-
     return (
       <PlayerCard
         key={player.id}
@@ -331,7 +264,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
         totalActive={totalActive}
         displayTimeMs={displayTimeMs}
         raceStartTime={raceStartTime}
-        isHeld={isHoldingReady}
+        isHeld={tp?.isHeld || false}
         isLockedIn={tp?.isLockedIn || false}
         isRunning={isCurrentlyRunning}
         isFinished={isDisplayFinished}
@@ -351,7 +284,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
         isGameWinner={isGameWinner}
         isSetWinner={isSetWinner}
         isClickable={isCardClickable}
-        differentialLeadFraction={differentialData.playerFractions[player.id]}
+        differentialLeadFraction={isTeamMode ? undefined : differentialData.playerFractions[player.id]}
         onClick={() =>
           setPenaltyModalPlayer({
             playerId: player.id,

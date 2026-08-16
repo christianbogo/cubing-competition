@@ -81,7 +81,7 @@ export const SolveGrid: React.FC = () => {
 
                 {/* Game Cells */}
                 {allGames.map((g) => {
-                  const solve: Solve | undefined = g.solves[player.id];
+                  const solve: Solve | undefined = g.solves?.[player.id];
                   const hasSolve = !!solve && solve.rawTimeMs > 0;
 
                   const isLatestGame = allGames.length > 0 && g.id === allGames[allGames.length - 1]?.id;

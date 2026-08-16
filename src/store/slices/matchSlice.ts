@@ -5,7 +5,10 @@ import { generateWcaScramble } from '@/utils/scramble';
 import { formatTime } from '@/utils/formatters';
 
 export interface MatchSlice {
+  matchId: string;
   matchStatus: 'SETUP' | 'IN_PROGRESS' | 'COMPLETED';
+  isRoomActive: boolean;
+  connectedGuests: string[];
   currentSetIndex: number;
   currentGameIndex: number;
   currentRoundIndex: number;
@@ -27,6 +30,8 @@ export interface MatchSlice {
   matchWinnerPlayerId: string | null;
   matchWinnerTeamId: TeamId | null;
 
+  setIsRoomActive: (active: boolean) => void;
+  setConnectedGuests: (guests: string[]) => void;
   startMatch: () => Promise<void>;
   resetCurrentGame: () => void;
   startNextGame: () => void;
@@ -50,7 +55,10 @@ export interface MatchSlice {
 }
 
 export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', never]], [], MatchSlice> = (set, get) => ({
+  matchId: `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
   matchStatus: 'SETUP',
+  isRoomActive: false,
+  connectedGuests: [],
   currentSetIndex: 0,
   currentGameIndex: 0,
   currentRoundIndex: 0,
@@ -71,6 +79,9 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
   setBestTimeMs: null,
   matchWinnerPlayerId: null,
   matchWinnerTeamId: null,
+
+  setIsRoomActive: (active: boolean) => set((state) => { state.isRoomActive = active; }),
+  setConnectedGuests: (guests: string[]) => set((state) => { state.connectedGuests = guests; }),
 
   startMatch: async () => {
     const initialGame: Game = {
@@ -497,8 +508,8 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
           const runningTeamPoints: Record<TeamId, number> = { RED: 0, BLUE: 0 };
           state.players.forEach((p) => (runningGamePoints[p.id] = 0));
 
-          let lastRoundCalculatedScores: Record<string, number> = {};
-          let latestRoundSolvesMap: Record<string, Solve> = {};
+          const lastRoundCalculatedScores: Record<string, number> = {};
+          const latestRoundSolvesMap: Record<string, Solve> = {};
 
           g.rounds.forEach((r) => {
             const rawSolves = r.solves || {};
@@ -523,18 +534,22 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
               const rank = idx + 1;
               let score = 0;
               if (state.settings.scoringMode === 'RANK_BASED') {
-                score = item.isDNF ? 1 : Math.max(1, activePlayers.length - (rank - 1)) + (rank === 1 ? state.settings.firstPlaceBonus : 0);
+                score = item.isDNF ? 0 : Math.max(1, activePlayers.length - (rank - 1)) + (rank === 1 ? state.settings.firstPlaceBonus : 0);
               } else {
-                score = item.isDNF ? 300 : Math.max(0, Math.round(((item.effectiveTimeMs - fastestMs) / 1000) * 100));
+                score = item.isDNF ? (state.settings.differentialDNFScore ?? 300) : Math.max(0, Math.round(((item.effectiveTimeMs - fastestMs) / 1000) * 100));
               }
 
               const fsDelta = item.rawSolve.falseStartDeltaMs || 0;
               const plus2 = item.rawSolve.penalty === 'PLUS_2' ? 2000 : 0;
               const finalTimeMs = item.isDNF ? 0 : item.rawSolve.rawTimeMs + fsDelta * state.settings.falseStartMultiplier + plus2;
 
-              r.solves[item.playerId].rank = rank;
-              r.solves[item.playerId].score = score;
-              r.solves[item.playerId].finalTimeMs = finalTimeMs;
+              if (!r.solves) r.solves = {};
+              if (!r.solves[item.playerId]) r.solves[item.playerId] = { ...item.rawSolve, rank, score, finalTimeMs };
+              else {
+                r.solves[item.playerId].rank = rank;
+                r.solves[item.playerId].score = score;
+                r.solves[item.playerId].finalTimeMs = finalTimeMs;
+              }
 
               latestRoundSolvesMap[item.playerId] = r.solves[item.playerId];
               lastRoundCalculatedScores[item.playerId] = score;
@@ -661,12 +676,19 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
   },
 
   cancelMatchToSetup: () => {
+    const currentMatchId = get().matchId;
     get().resetTournament();
+    set((state) => {
+      state.matchId = currentMatchId;
+    });
   },
 
   resetTournament: () => {
     set((state) => {
+      state.matchId = `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       state.matchStatus = 'SETUP';
+      state.isRoomActive = false;
+      state.connectedGuests = [];
       state.currentSetIndex = 0;
       state.currentGameIndex = 0;
       state.currentRoundIndex = 0;

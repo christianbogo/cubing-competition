@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { RaceState } from '@/types/tournament';
+import { RaceState, PenaltyType } from '@/types/tournament';
 
 export interface PlayerTimerData {
   playerId: string;
@@ -10,8 +10,10 @@ export interface PlayerTimerData {
   isLockedIn: boolean;
   isRunning: boolean;
   isFinished: boolean;
+  penalty?: PenaltyType;
   finishTimeMs: number | null;
   finishRank: number | null;
+  lastPenalty?: PenaltyType;
   lastFinishTimeMs: number | null;
   lastFinishRank: number | null;
 }
@@ -34,7 +36,7 @@ interface TimerStoreState {
   handleKeyDown: (playerId: string, timestamp: number, onStartNextRound?: () => void) => void;
   handleKeyUp: (playerId: string, timestamp: number) => { isFalseStart: boolean; deltaMs: number };
   startRace: (greenLightTimestamp: number) => void;
-  stopPlayer: (playerId: string, finishTimestamp: number) => number;
+  stopPlayer: (playerId: string, finishTimestamp: number, penalty?: PenaltyType) => number;
 
   resetForNewRace: () => void;
 }
@@ -63,8 +65,10 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         isLockedIn: false,
         isRunning: false,
         isFinished: false,
+        penalty: undefined,
         finishTimeMs: null,
         finishRank: null,
+        lastPenalty: existing[id]?.lastPenalty ?? undefined,
         lastFinishTimeMs: existing[id]?.lastFinishTimeMs ?? null,
         lastFinishRank: existing[id]?.lastFinishRank ?? null,
       };
@@ -107,8 +111,10 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
           isRunning: false,
           isFinished: false,
           isLockedIn: false,
+          lastPenalty: cur.penalty ?? cur.lastPenalty,
           lastFinishTimeMs: cur.finishTimeMs ?? cur.lastFinishTimeMs,
           lastFinishRank: cur.finishRank ?? cur.lastFinishRank,
+          penalty: undefined,
           finishTimeMs: null,
           finishRank: null,
           isHeld: id === playerId,
@@ -215,6 +221,7 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         isHeld: false,
         isRunning: true,
         isFinished: false,
+        penalty: undefined,
         rawTimeMs: 0,
         finishTimeMs: null,
         finishRank: null,
@@ -230,7 +237,7 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
     });
   },
 
-  stopPlayer: (playerId, finishTimestamp) => {
+  stopPlayer: (playerId, finishTimestamp, penalty?: PenaltyType) => {
     const { raceStartTime, players } = get();
     const p = players[playerId];
     if (!p || !p.isRunning || p.isFinished) return 0;
@@ -245,6 +252,7 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         ...p,
         isRunning: false,
         isFinished: true,
+        penalty: penalty || 'NONE',
         finishTimeMs: rawTimeMs,
         rawTimeMs,
         finishRank,
@@ -261,8 +269,6 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
     return finishRank;
   },
 
-
-
   resetForNewRace: () => {
     const { players } = get();
     const resetPlayers: Record<string, PlayerTimerData> = {};
@@ -276,8 +282,10 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         isLockedIn: false,
         isRunning: false,
         isFinished: false,
+        penalty: undefined,
         finishTimeMs: null,
         finishRank: null,
+        lastPenalty: players[id]?.penalty ?? players[id]?.lastPenalty ?? undefined,
         lastFinishTimeMs: players[id]?.finishTimeMs ?? players[id]?.lastFinishTimeMs ?? null,
         lastFinishRank: players[id]?.finishRank ?? players[id]?.lastFinishRank ?? null,
       };

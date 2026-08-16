@@ -55,8 +55,18 @@ export interface SimulatedBotSolve {
  * Generate a simulated solve for a bot based on its stats and maturity
  */
 export function generateBotSolve(config: BotConfig): SimulatedBotSolve {
-  const { averageTimeMs, stdDevMs, maturity } = config;
-  const probs = MATURITY_PROBABILITIES[maturity] || MATURITY_PROBABILITIES.INTERMEDIATE;
+  const { averageTimeMs, stdDevMs, maturity, maturityNumber } = config;
+  
+  let probs = MATURITY_PROBABILITIES[maturity] || MATURITY_PROBABILITIES.INTERMEDIATE;
+  
+  if (maturityNumber !== undefined) {
+    probs = {
+      falseStartRate: maturityNumber * 0.4,
+      plus2Rate: maturityNumber * 0.5,
+      dnfRate: maturityNumber * 0.1,
+      maxFalseStartDeltaMs: 250, // Keep a constant false start delay range
+    };
+  }
 
   // 1. Generate Gaussian solve time (clamped to realistic minimum)
   const rawSample = sampleGaussian(averageTimeMs, stdDevMs);

@@ -10,16 +10,19 @@ import { MatchSetupWizard } from '@/components/setup/MatchSetupWizard';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { KeyGuideModal } from '@/components/display/KeyGuideModal';
 import { MatchOverviewModal } from '@/components/display/MatchOverviewModal';
-import { MatchVictoryModal } from '@/components/display/MatchVictoryModal';
 import { useKeyboardController } from '@/hooks/useKeyboardController';
 import { useTournamentStore } from '@/store/tournamentStore';
 import { useTimerStore } from '@/store/timerStore';
+import { useFirebaseHost } from '@/hooks/useFirebaseMatch';
 
 export default function CompetitionDisplayPage() {
   // Hook for all multi-key controller listening & state transitions
   useKeyboardController();
+  
+  // Hook for synchronizing match state to Firebase Realtime Database
+  useFirebaseHost();
 
-  const { isAdminOpen, toggleAdmin, matchWinnerPlayerId, matchStatus } = useTournamentStore();
+  const { isAdminOpen, toggleAdmin, matchWinnerPlayerId, matchWinnerTeamId, matchStatus } = useTournamentStore();
   const raceState = useTimerStore((s) => s.raceState);
   const [isKeyGuideOpen, setIsKeyGuideOpen] = useState(false);
   const [isOverviewOpen, setIsOverviewOpen] = useState(false);
@@ -112,12 +115,10 @@ export default function CompetitionDisplayPage() {
       <KeyGuideModal isOpen={isKeyGuideOpen} onClose={() => setIsKeyGuideOpen(false)} />
 
       {/* Fullscreen Match Overview & Solve Matrix Modal */}
-      <MatchOverviewModal isOpen={isOverviewOpen} onClose={() => setIsOverviewOpen(false)} />
-
-      {/* Match Victory Grand Celebration Modal */}
-      {matchWinnerPlayerId && (
-        <MatchVictoryModal onClose={() => useTournamentStore.setState({ matchWinnerPlayerId: null })} />
-      )}
+      <MatchOverviewModal
+        isOpen={isOverviewOpen || !!matchWinnerPlayerId || !!matchWinnerTeamId}
+        onClose={() => setIsOverviewOpen(false)}
+      />
     </div>
   );
 }

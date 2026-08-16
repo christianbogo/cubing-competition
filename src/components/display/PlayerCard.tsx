@@ -104,19 +104,16 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 
   const formattedTime = formatTime(displayTimeMs, { penalty });
 
-  const showRank = isFinished && !isHeld && !isRunning && rank !== undefined && displayTimeMs > 0;
+  const showRank = isFinished && !isRunning && rank !== undefined && displayTimeMs > 0;
   const ordinalRank = showRank ? getOrdinal(rank) : '';
 
-  // Ready up (isHeld) takes priority over finished/standby state
   const timeTextColor = isRunning
     ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-    : isHeld
-      ? 'text-amber-600 dark:text-amber-400 font-black animate-pulse'
-      : (isFinished || penalty === 'DNF' || penalty === 'PLUS_2' || isFalseStart)
-        ? isPenalized
-          ? 'text-red-600 dark:text-red-500 font-black'
-          : 'text-slate-900 dark:text-white font-black'
-        : 'text-slate-400 dark:text-slate-500';
+    : (isFinished || penalty === 'DNF' || penalty === 'PLUS_2' || isFalseStart)
+      ? isPenalized
+        ? 'text-red-600 dark:text-red-500 font-black'
+        : 'text-slate-900 dark:text-white font-black'
+      : 'text-slate-400 dark:text-slate-500';
 
   // Card border and background styling with Game Winner & Set Winner highlights
   const cardStyle = isRunning
@@ -225,12 +222,8 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           </div>
         </div>
 
-        {/* Top-Right: Rank Badge or Ready Pill or Winner Badge */}
-        {isHeld ? (
-          <span className="px-2 py-0.5 rounded-lg border text-[10px] font-mono font-black uppercase shrink-0 bg-amber-400 text-slate-950 border-amber-300 shadow-sm animate-pulse">
-            READY
-          </span>
-        ) : isSetWinner ? (
+        {/* Top-Right: Rank Badge or Winner Badge */}
+        {isSetWinner ? (
           <span className="px-2 py-0.5 rounded-lg border text-[11px] font-mono font-black uppercase shrink-0 bg-amber-400 text-slate-950 border-amber-300 shadow-md animate-bounce">
             🏆 SET WINNER
           </span>
@@ -255,7 +248,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           ref={timeRef}
           className={`font-mono text-3xl sm:text-4xl md:text-5xl font-black tracking-tight tabular-nums transition-colors duration-150 ${timeTextColor}`}
         >
-          {isHeld ? '0.00' : formattedTime}
+          {formattedTime}
         </div>
 
         {/* Bot Avg & Std Variance OR Host Live Avg & Std Variance */}
@@ -267,21 +260,25 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           <div className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0">
             ~{(liveStats.averageTimeMs / 1000).toFixed(1)}s (±{(liveStats.stdDevMs / 1000).toFixed(1)}s)
           </div>
-        ) : null}
+        ) : (
+          <div className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0">
+            ~--.-s (±-.-s)
+          </div>
+        )}
 
         {/* Penalties & Subtitle Alerts */}
         <div className="min-h-[2px] mt-0.5 flex items-center justify-center gap-1 flex-wrap">
-          {!isHeld && !isRunning && penalty === 'PLUS_2' && (
+          {!isRunning && penalty === 'PLUS_2' && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-orange-100 dark:bg-orange-950/60 border border-orange-300 dark:border-orange-500/40 text-orange-700 dark:text-orange-400 text-[10px] font-mono font-bold">
               +2.00s
             </span>
           )}
-          {!isHeld && !isRunning && penalty === 'DNF' && (
+          {!isRunning && penalty === 'DNF' && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-500/40 text-red-700 dark:text-red-400 text-[10px] font-mono font-bold">
               DNF
             </span>
           )}
-          {!isHeld && !isRunning && isFalseStart && (
+          {!isRunning && isFalseStart && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-red-100 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-[9px] font-mono font-semibold">
               Early: +{(falseStartPenaltyMs / 1000).toFixed(2)}s
             </span>

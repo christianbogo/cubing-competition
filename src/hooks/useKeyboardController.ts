@@ -84,13 +84,14 @@ export function useKeyboardController() {
 
           if (stillAllHeld) {
             const now = performance.now();
+            const redPauseMs = 1000;
             const stageInterval = COUNTDOWN_STAGE_INTERVAL_MS;
             const randomPause = 600 + Math.random() * 1200;
-            const targetGreen = now + 350 + stageInterval * 2 + randomPause;
+            const targetGreen = now + redPauseMs + stageInterval * 2 + randomPause;
 
             useTimerStore.setState({
               scheduledGreenTime: targetGreen,
-              countdownStartTime: now + 350,
+              countdownStartTime: now + redPauseMs,
             });
 
             setRaceState('LOCKED_IN');
@@ -98,7 +99,7 @@ export function useKeyboardController() {
 
             setTimeout(() => {
               setRaceState('DRAG_COUNTDOWN');
-            }, 350);
+            }, redPauseMs);
           }
           lockInTimeoutRef.current = null;
         }, LOCK_IN_DURATION_MS);
@@ -186,7 +187,7 @@ export function useKeyboardController() {
         solvesData[p.id] = {
           rawTimeMs: raw,
           falseStartDeltaMs: tp?.falseStartDeltaMs || 0,
-          penalty: 'NONE',
+          penalty: tp?.penalty || 'NONE',
         };
       });
 

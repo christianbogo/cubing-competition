@@ -8,10 +8,15 @@ export type RaceState = 'IDLE' | 'WAITING_FOR_ALL' | 'LOCKED_IN' | 'DRAG_COUNTDO
 export type PlayerRole = 'HOST' | 'BOT' | 'PLAYER';
 export type BotMaturity = 'NOVICE' | 'INTERMEDIATE' | 'PRO' | 'WORLD_CLASS';
 
+export type BotDifficultyType = 'ARENA' | 'CUSTOM';
+
 export interface BotConfig {
+  difficultyType?: BotDifficultyType; // 'ARENA' (default) or 'CUSTOM'
+  arenaTier?: string;                 // e.g. "Iron III"
+  maturityNumber?: number;            // 0 to 1 representation of mistake percentage
   averageTimeMs: number; // in milliseconds (e.g. 5000 = 5.00s)
   stdDevMs: number;      // in milliseconds (e.g. 600 = 0.60s)
-  maturity: BotMaturity; // controls early start, +2, and DNF probabilities
+  maturity: BotMaturity; // controls early start, +2, and DNF probabilities for 'CUSTOM'
 }
 
 export interface Player {
