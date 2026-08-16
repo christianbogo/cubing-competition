@@ -29,18 +29,11 @@ export function formatTime(
 
   const hundredthsStr = hundredths.toString().padStart(2, '0');
 
-  let formatted = '';
   if (minutes > 0) {
-    formatted = `${sign}${minutes}:${seconds.toString().padStart(2, '0')}.${hundredthsStr}`;
+    return `${sign}${minutes}:${seconds.toString().padStart(2, '0')}.${hundredthsStr}`;
   } else {
-    formatted = `${sign}${seconds}.${hundredthsStr}`;
+    return `${sign}${seconds}.${hundredthsStr}`;
   }
-
-  if (penalty === 'PLUS_2') {
-    return `${formatted}+`;
-  }
-
-  return formatted;
 }
 
 /**

@@ -1,92 +1,145 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { PenaltyType, Player, Solve } from '@/types/tournament';
 import { PlayerCard } from './PlayerCard';
 import { TeamCard } from './TeamCard';
-import { DEFAULT_PLAYER_COLORS, Player } from '@/types/tournament';
-import { useTimerStore } from '@/store/timerStore';
 import { useTournamentStore } from '@/store/tournamentStore';
+import { useTimerStore } from '@/store/timerStore';
+import { X } from 'lucide-react';
 
-export const LeaderboardView: React.FC = () => {
+interface LeaderboardViewProps {
+  onOpenAdmin?: () => void;
+}
+
+export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
   const {
     players,
-    settings,
-    currentGameSolves,
+    sets,
+    currentSetIndex,
+    currentGameIndex,
+    currentRoundIndex,
     currentGamePoints,
-    lastRoundScores,
-    setWins,
-    gameWins,
     teamGamePoints,
-    teamTotalPoints,
-    teamSetWins,
+    gameWins,
     teamGameWins,
+    setWins,
+    teamSetWins,
+    teamTotalPoints,
+    lastRoundScores,
+    currentGameSolves,
+    settings,
+    applyPenalty,
   } = useTournamentStore();
-  const { players: timerPlayers, raceState } = useTimerStore();
 
-  const activePlayers = players.filter((p) => p.active);
-  const totalActive = activePlayers.length;
+  const raceState = useTimerStore((s) => s.raceState);
+  const raceStartTime = useTimerStore((s) => s.raceStartTime);
+  const timerPlayers = useTimerStore((s) => s.players);
+
+  const [penaltyModalPlayer, setPenaltyModalPlayer] = useState<{
+    playerId: string;
+    playerName: string;
+    currentPenalty: PenaltyType;
+  } | null>(null);
+
   const isTeamMode = settings.tournamentMode === 'TEAMS';
+  const activePlayers = useMemo(() => players.filter((p) => p.active), [players]);
+  const totalActive = activePlayers.length;
 
-  // Helper to dynamically resolve player color depending on FFA vs Team mode
-  const getPlayerWithTheme = (player: Player, index: number): Player => {
-    if (isTeamMode) {
-      const isRed = (player.team || 'RED') === 'RED';
-      return {
-        ...player,
-        color: isRed ? 'text-red-400' : 'text-cyan-400',
-        accentColor: isRed ? '#ef4444' : '#06b6d4',
-      };
-    }
+  const pointsFloor = settings.scoringMode === 'RANK_BASED' ? (settings.rankPointsFloor || 15) : undefined;
 
-    // In Free For All: restore distinct player color theme
-    const theme = DEFAULT_PLAYER_COLORS[index % DEFAULT_PLAYER_COLORS.length];
+  // Calculate live cumulative average and std dev for each player across all completed rounds
+  const playerSolveStats = useMemo(() => {
+    const stats: Record<string, { averageTimeMs: number; stdDevMs: number; count: number }> = {};
+
+    players.forEach((p) => {
+      const timesMs: number[] = [];
+      sets.forEach((s) => {
+        s.games.forEach((g) => {
+          g.rounds.forEach((r) => {
+            const solve = r.solves[p.id];
+            if (solve && !solve.isDNF && solve.finalTimeMs > 0 && r.completed) {
+              timesMs.push(solve.finalTimeMs);
+            }
+          });
+        });
+      });
+
+      if (timesMs.length > 0) {
+        const sum = timesMs.reduce((acc, t) => acc + t, 0);
+        const mean = sum / timesMs.length;
+        const variance =
+          timesMs.length > 1
+            ? timesMs.reduce((acc, t) => acc + Math.pow(t - mean, 2), 0) / timesMs.length
+            : 0;
+        const stdDev = Math.sqrt(variance);
+        stats[p.id] = {
+          averageTimeMs: mean,
+          stdDevMs: stdDev,
+          count: timesMs.length,
+        };
+      }
+    });
+
+    return stats;
+  }, [sets, players]);
+
+  // Helper to get consistent player themes based on their color property
+  const getPlayerWithTheme = (player: Player, index: number) => {
     return {
       ...player,
-      color: theme.color,
-      accentColor: theme.accentColor,
+      key: player.key || `P${index + 1}`,
     };
   };
 
-  // Dynamically recompute live ranks and live round scores across all currently finished players
-  // Taking start penalties and +2 into account so placements reflect true effective time!
+  // Real-time ranks and round score calculation during active round
   const liveRanksAndScores = useMemo(() => {
-    const finishedList: { playerId: string; effectiveTimeMs: number }[] = [];
+    const finishedList: {
+      playerId: string;
+      effectiveTimeMs: number;
+      isDNF: boolean;
+    }[] = [];
 
     activePlayers.forEach((p) => {
       const tp = timerPlayers[p.id];
       const solve = currentGameSolves[p.id];
+      const isFinished = tp?.isFinished || (raceState === 'FINISHED' && solve?.completedAt);
 
-      if (raceState === 'RACING' && tp?.isFinished && tp.finishTimeMs !== null) {
-        const rawTime = tp.finishTimeMs;
-        const penaltyDelta = (tp.falseStartDeltaMs || 0) * settings.falseStartMultiplier;
-        const effective = rawTime + penaltyDelta;
-        finishedList.push({ playerId: p.id, effectiveTimeMs: effective });
-      } else if (raceState === 'FINISHED' || solve?.completedAt) {
-        const effective =
-          solve?.finalTimeMs ??
-          ((tp?.finishTimeMs || 0) + (tp?.falseStartDeltaMs || 0) * settings.falseStartMultiplier);
-        finishedList.push({ playerId: p.id, effectiveTimeMs: effective });
+      if (isFinished) {
+        const isDNF = solve?.penalty === 'DNF';
+        const plus2Ms = solve?.penalty === 'PLUS_2' ? 2000 : 0;
+        const effective = isDNF
+          ? 999999
+          : (solve?.finalTimeMs ??
+            (tp?.finishTimeMs || 0) +
+              (tp?.falseStartDeltaMs || 0) * settings.falseStartMultiplier +
+              plus2Ms);
+        finishedList.push({ playerId: p.id, effectiveTimeMs: effective, isDNF });
       }
     });
 
-    // Sort finished solvers by effective final time ascending (fastest first)
+    // Sort finished solvers by effective final time ascending (fastest first, DNFs last)
     finishedList.sort((a, b) => a.effectiveTimeMs - b.effectiveTimeMs);
 
     const ranks: Record<string, number> = {};
     const roundScores: Record<string, number> = {};
-    const fastestMs = finishedList.length > 0 ? finishedList[0].effectiveTimeMs : 0;
+    const validFinishes = finishedList.filter((x) => !x.isDNF);
+    const fastestMs = validFinishes.length > 0 ? validFinishes[0].effectiveTimeMs : 0;
 
     finishedList.forEach((item, idx) => {
       const rank = idx + 1;
       ranks[item.playerId] = rank;
 
       if (settings.scoringMode === 'RANK_BASED') {
-        roundScores[item.playerId] =
-          Math.max(1, totalActive - (rank - 1)) +
-          (rank === 1 ? settings.firstPlaceBonus : 0);
+        roundScores[item.playerId] = item.isDNF
+          ? 1
+          : Math.max(1, totalActive - (rank - 1)) +
+            (rank === 1 ? settings.firstPlaceBonus : 0);
       } else {
-        roundScores[item.playerId] = Math.max(
-          0,
-          Math.round(((item.effectiveTimeMs - fastestMs) / 1000) * 100)
-        );
+        roundScores[item.playerId] = item.isDNF
+          ? 300
+          : Math.max(
+              0,
+              Math.round(((item.effectiveTimeMs - fastestMs) / 1000) * 100)
+            );
       }
     });
 
@@ -100,7 +153,6 @@ export const LeaderboardView: React.FC = () => {
     const storedLastScore = lastRoundScores[playerId];
     const baseGamePoints = currentGamePoints[playerId] || 0;
 
-    // 1. If race is finished, show finalized round score
     if (raceState === 'FINISHED' || solve?.completedAt) {
       const finalScore = liveRanksAndScores.roundScores[playerId] ?? solve?.score ?? storedLastScore;
       return {
@@ -109,7 +161,6 @@ export const LeaderboardView: React.FC = () => {
       };
     }
 
-    // 2. If race is actively running and this player just finished:
     if (raceState === 'RACING' && tp?.isFinished && tp.finishTimeMs !== null) {
       const instantScore = liveRanksAndScores.roundScores[playerId] || 0;
       return {
@@ -118,52 +169,159 @@ export const LeaderboardView: React.FC = () => {
       };
     }
 
-    // 3. When round has started (or preparing to start: WAITING_FOR_ALL, LOCKED_IN, DRAG_COUNTDOWN, RACING),
-    // hide the plus amount until this solver finishes
     return {
       gamePoints: baseGamePoints,
       roundAdd: undefined,
     };
   };
 
+  // Calculate differential lead gaps for players & teams
+  const differentialData = useMemo(() => {
+    if (settings.scoringMode !== 'DIFFERENTIAL') {
+      return { playerFractions: {}, redTeamFraction: undefined, blueTeamFraction: undefined };
+    }
+
+    const targetGap = settings.differentialGapThreshold || 500;
+    const playerFractions: Record<string, string> = {};
+
+    // For Free For All:
+    // Gather all active players' live game points
+    const playerScores = activePlayers.map((p) => {
+      const { gamePoints } = getLivePlayerScoreData(p.id);
+      return { id: p.id, points: gamePoints };
+    });
+
+    // In differential scoring, lower score is better (1st place has lowest points)
+    playerScores.sort((a, b) => a.points - b.points);
+
+    if (playerScores.length >= 2) {
+      const leader = playerScores[0];
+      const second = playerScores[1];
+      const gap = Math.max(0, second.points - leader.points);
+      // Only the leader gets the green fraction
+      playerFractions[leader.id] = `${gap}/${targetGap}`;
+    }
+
+    // For Teams:
+    let redTeamFraction: string | undefined = undefined;
+    let blueTeamFraction: string | undefined = undefined;
+
+    const redPts = teamGamePoints.RED || 0;
+    const bluePts = teamGamePoints.BLUE || 0;
+
+    if (redPts < bluePts) {
+      const gap = bluePts - redPts;
+      redTeamFraction = `${gap}/${targetGap}`;
+    } else if (bluePts < redPts) {
+      const gap = redPts - bluePts;
+      blueTeamFraction = `${gap}/${targetGap}`;
+    }
+
+    return { playerFractions, redTeamFraction, blueTeamFraction };
+  }, [
+    settings.scoringMode,
+    settings.differentialGapThreshold,
+    activePlayers,
+    timerPlayers,
+    currentGameSolves,
+    raceState,
+    lastRoundScores,
+    currentGamePoints,
+    teamGamePoints,
+    liveRanksAndScores,
+  ]);
+
   // Helper to render an individual player card
   const renderPlayerCard = (player: Player, index: number) => {
     const themedPlayer = getPlayerWithTheme(player, index);
     const tp = timerPlayers[player.id];
     const solve = currentGameSolves[player.id];
+    const isSolveFromCurrentRound = solve?.roundIndex === currentRoundIndex;
+    const currentRoundSolve = isSolveFromCurrentRound ? solve : undefined;
+
+    // Find the latest recorded solve for this player across all completed rounds in sets
+    let lastCompletedSolve: Solve | undefined = undefined;
+    for (let sIdx = sets.length - 1; sIdx >= 0; sIdx--) {
+      const s = sets[sIdx];
+      for (let gIdx = s.games.length - 1; gIdx >= 0; gIdx--) {
+        const g = s.games[gIdx];
+        for (let rIdx = g.rounds.length - 1; rIdx >= 0; rIdx--) {
+          const r = g.rounds[rIdx];
+          if (r.completed && r.solves[player.id]) {
+            lastCompletedSolve = r.solves[player.id];
+            break;
+          }
+        }
+        if (lastCompletedSolve) break;
+      }
+      if (lastCompletedSolve) break;
+    }
+
+    const currentSet = sets[currentSetIndex];
+    const currentGame = currentSet?.games[currentGameIndex];
+    const isGameWinner = !!currentGame?.completed && (isTeamMode ? currentGame.winnerTeam === player.team : currentGame.winnerId === player.id);
+    const isSetWinner = !!currentSet?.completed && (isTeamMode ? currentSet.winnerTeam === player.team : currentSet.winnerId === player.id);
 
     const isCurrentlyRunning = raceState === 'RACING' && tp?.isRunning && !tp?.isFinished;
-    const isFinishedThisRound = tp?.isFinished;
-    const isSolveRecorded = raceState === 'FINISHED' && solve?.completedAt !== undefined;
+    const isFinishedThisRound = tp?.isFinished && tp.finishTimeMs !== null;
+    const isSolveRecorded = raceState === 'FINISHED' && currentRoundSolve?.completedAt !== undefined;
+    const isHoldingReady = tp?.isHeld || false;
+
     const isStandbyWithReference =
       raceState !== 'RACING' &&
       !tp?.isRunning &&
       !tp?.isFinished &&
-      (tp?.lastFinishTimeMs !== null && tp?.lastFinishTimeMs !== undefined);
+      !isHoldingReady &&
+      ((tp?.lastFinishTimeMs !== null && tp?.lastFinishTimeMs !== undefined) || lastCompletedSolve !== undefined);
+
+    const isFinishedDisplay = isFinishedThisRound || isSolveRecorded;
+
+    // Penalty resolution:
+    // When holding ready or racing -> 'NONE'
+    // When finished this round -> currentRoundSolve penalty
+    // When on standby waiting for next solve -> lastCompletedSolve penalty (e.g. DNF persists)
+    const penalty: PenaltyType = isHoldingReady || isCurrentlyRunning
+      ? 'NONE'
+      : isFinishedDisplay
+      ? (currentRoundSolve?.penalty || 'NONE')
+      : isStandbyWithReference
+      ? (lastCompletedSolve?.penalty || 'NONE')
+      : 'NONE';
+
+    const fsDelta = isHoldingReady || isCurrentlyRunning
+      ? 0
+      : (tp?.falseStartDeltaMs || (isFinishedDisplay ? currentRoundSolve?.falseStartDeltaMs : lastCompletedSolve?.falseStartDeltaMs) || 0);
+    const fsPenaltyMs = fsDelta * settings.falseStartMultiplier;
+    const plus2PenaltyMs = penalty === 'PLUS_2' ? 2000 : 0;
 
     let displayTimeMs = 0;
     let displayRank: number | undefined = undefined;
     let isDisplayFinished = false;
 
-    if (isCurrentlyRunning) {
+    if (isHoldingReady) {
+      displayTimeMs = 0;
+      displayRank = undefined;
+      isDisplayFinished = false;
+    } else if (isCurrentlyRunning) {
       displayTimeMs = tp?.rawTimeMs || 0;
       displayRank = undefined;
       isDisplayFinished = false;
     } else if (isFinishedThisRound) {
-      displayTimeMs = tp?.finishTimeMs ?? tp?.rawTimeMs ?? 0;
-      displayRank = liveRanksAndScores.ranks[player.id] ?? tp?.finishRank ?? solve?.rank;
+      displayTimeMs = (tp.finishTimeMs || 0) + fsPenaltyMs + plus2PenaltyMs;
+      displayRank = liveRanksAndScores.ranks[player.id] ?? tp?.finishRank ?? currentRoundSolve?.rank;
       isDisplayFinished = true;
-    } else if (isSolveRecorded) {
-      displayTimeMs = solve?.finalTimeMs ?? tp?.finishTimeMs ?? tp?.rawTimeMs ?? 0;
-      displayRank = liveRanksAndScores.ranks[player.id] ?? solve?.rank ?? tp?.finishRank;
+    } else if (isSolveRecorded && currentRoundSolve) {
+      displayTimeMs = currentRoundSolve.finalTimeMs;
+      displayRank = liveRanksAndScores.ranks[player.id] ?? currentRoundSolve.rank ?? tp?.finishRank;
       isDisplayFinished = true;
     } else if (isStandbyWithReference) {
-      displayTimeMs = tp?.lastFinishTimeMs ?? 0;
-      displayRank = tp?.lastFinishRank ?? undefined;
+      displayTimeMs = penalty === 'DNF' ? 0 : (tp?.lastFinishTimeMs ?? lastCompletedSolve?.finalTimeMs ?? 0);
+      displayRank = tp?.lastFinishRank ?? lastCompletedSolve?.rank ?? undefined;
       isDisplayFinished = true;
     }
 
     const { gamePoints, roundAdd } = getLivePlayerScoreData(player.id);
+    const isCardClickable = raceState === 'FINISHED' && isFinishedDisplay;
 
     return (
       <PlayerCard
@@ -172,84 +330,249 @@ export const LeaderboardView: React.FC = () => {
         rank={displayRank}
         totalActive={totalActive}
         displayTimeMs={displayTimeMs}
-        isHeld={tp?.isHeld || false}
+        raceStartTime={raceStartTime}
+        isHeld={isHoldingReady}
         isLockedIn={tp?.isLockedIn || false}
         isRunning={isCurrentlyRunning}
         isFinished={isDisplayFinished}
-        falseStartDeltaMs={tp?.falseStartDeltaMs || solve?.falseStartDeltaMs || 0}
+        falseStartDeltaMs={fsDelta}
         falseStartMultiplier={settings.falseStartMultiplier}
-        penalty={solve?.penalty || 'NONE'}
+        penalty={penalty}
         lastRoundScore={roundAdd}
         gamePoints={gamePoints}
+        pointsFloor={pointsFloor}
         setWins={setWins[player.id] || 0}
         gameWins={gameWins[player.id] || 0}
         targetSets={settings.targetSets}
         targetGames={settings.targetGames}
         scoringMode={settings.scoringMode}
         isTeamMode={isTeamMode}
+        liveStats={playerSolveStats[player.id]}
+        isGameWinner={isGameWinner}
+        isSetWinner={isSetWinner}
+        isClickable={isCardClickable}
+        differentialLeadFraction={differentialData.playerFractions[player.id]}
+        onClick={() =>
+          setPenaltyModalPlayer({
+            playerId: player.id,
+            playerName: player.name,
+            currentPenalty: penalty,
+          })
+        }
       />
     );
   };
 
-  // Team Split View (Strictly 2 columns even on small width screens: Left = Red, Right = Blue)
+  // Team Split View
   if (isTeamMode) {
     const redPlayers = activePlayers.filter((p) => (p.team || 'RED') === 'RED');
     const bluePlayers = activePlayers.filter((p) => p.team === 'BLUE');
 
     return (
-      <div className="w-full grid grid-cols-2 gap-3 sm:gap-6 items-start">
-        {/* Red Team Column (Left) */}
-        <div className="flex flex-col">
-          <TeamCard
-            team="RED"
-            gamePoints={teamGamePoints.RED || 0}
-            totalPoints={teamTotalPoints.RED || 0}
-            setWins={teamSetWins.RED || 0}
-            gameWins={teamGameWins.RED || 0}
-            targetSets={settings.targetSets}
-            targetGames={settings.targetGames}
-            playerCount={redPlayers.length}
-          />
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-            {redPlayers.map((p, idx) => renderPlayerCard(p, idx))}
+      <div className="w-full relative">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
+          {/* Red Team Column (Left) */}
+          <div className="flex flex-col gap-3">
+            <TeamCard
+              team="RED"
+              gamePoints={teamGamePoints.RED || 0}
+              totalPoints={teamTotalPoints.RED || 0}
+              setWins={teamSetWins.RED || 0}
+              gameWins={teamGameWins.RED || 0}
+              targetSets={settings.targetSets}
+              targetGames={settings.targetGames}
+              playerCount={redPlayers.length}
+              differentialLeadFraction={differentialData.redTeamFraction}
+            />
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 auto-rows-fr items-stretch">
+              {redPlayers.map((p, idx) => renderPlayerCard(p, idx))}
+            </div>
+          </div>
+
+          {/* Blue Team Column (Right) */}
+          <div className="flex flex-col gap-3">
+            <TeamCard
+              team="BLUE"
+              gamePoints={teamGamePoints.BLUE || 0}
+              totalPoints={teamTotalPoints.BLUE || 0}
+              setWins={teamSetWins.BLUE || 0}
+              gameWins={teamGameWins.BLUE || 0}
+              targetSets={settings.targetSets}
+              targetGames={settings.targetGames}
+              playerCount={bluePlayers.length}
+              differentialLeadFraction={differentialData.blueTeamFraction}
+            />
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 auto-rows-fr items-stretch">
+              {bluePlayers.map((p, idx) => renderPlayerCard(p, idx))}
+            </div>
           </div>
         </div>
 
-        {/* Blue Team Column (Right) */}
-        <div className="flex flex-col">
-          <TeamCard
-            team="BLUE"
-            gamePoints={teamGamePoints.BLUE || 0}
-            totalPoints={teamTotalPoints.BLUE || 0}
-            setWins={teamSetWins.BLUE || 0}
-            gameWins={teamGameWins.BLUE || 0}
-            targetSets={settings.targetSets}
-            targetGames={settings.targetGames}
-            playerCount={bluePlayers.length}
-          />
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-            {bluePlayers.map((p, idx) => renderPlayerCard(p, idx))}
+        {/* Penalty Adjustment Popover Modal */}
+        {penaltyModalPlayer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="w-full max-w-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-3xl p-5 shadow-2xl space-y-4 font-mono">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                    Adjust Penalty
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-bold">
+                    {penaltyModalPlayer.playerName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPenaltyModalPlayer(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentGame = sets[currentSetIndex]?.games[currentGameIndex];
+                    if (currentGame) {
+                      applyPenalty(currentGame.id, penaltyModalPlayer.playerId, 'NONE');
+                    }
+                    setPenaltyModalPlayer(null);
+                  }}
+                  className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all ${
+                    penaltyModalPlayer.currentPenalty === 'NONE' || !penaltyModalPlayer.currentPenalty
+                      ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  OK
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentGame = sets[currentSetIndex]?.games[currentGameIndex];
+                    if (currentGame) {
+                      applyPenalty(currentGame.id, penaltyModalPlayer.playerId, 'PLUS_2');
+                    }
+                    setPenaltyModalPlayer(null);
+                  }}
+                  className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all ${
+                    penaltyModalPlayer.currentPenalty === 'PLUS_2'
+                      ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  +2.00s
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentGame = sets[currentSetIndex]?.games[currentGameIndex];
+                    if (currentGame) {
+                      applyPenalty(currentGame.id, penaltyModalPlayer.playerId, 'DNF');
+                    }
+                    setPenaltyModalPlayer(null);
+                  }}
+                  className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all ${
+                    penaltyModalPlayer.currentPenalty === 'DNF'
+                      ? 'bg-red-500 text-white border-red-600 shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  DNF
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
 
-  // Free For All Dynamic Grid
-  const getGridColsClass = () => {
-    if (totalActive <= 2) return 'grid-cols-1 md:grid-cols-2';
-    if (totalActive === 3) return 'grid-cols-1 md:grid-cols-3';
-    if (totalActive === 4) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    if (totalActive <= 6) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
-    if (totalActive <= 8) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5';
-  };
-
+  // Free For All Grid: Equal height cards using auto-rows-fr and items-stretch
   return (
-    <div className="w-full">
-      <div className={`grid gap-4 ${getGridColsClass()}`}>
+    <div className="w-full relative">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr items-stretch">
         {activePlayers.map((p, idx) => renderPlayerCard(p, idx))}
       </div>
+
+      {/* Penalty Adjustment Popover Modal */}
+      {penaltyModalPlayer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-3xl p-5 shadow-2xl space-y-4 font-mono">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  Adjust Penalty
+                </h4>
+                <p className="text-[11px] text-slate-500 font-bold">
+                  {penaltyModalPlayer.playerName}
+                </p>
+              </div>
+              <button
+                onClick={() => setPenaltyModalPlayer(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const currentGame = sets[currentSetIndex]?.games[currentGameIndex];
+                  if (currentGame) {
+                    applyPenalty(currentGame.id, penaltyModalPlayer.playerId, 'NONE');
+                  }
+                  setPenaltyModalPlayer(null);
+                }}
+                className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all ${
+                  penaltyModalPlayer.currentPenalty === 'NONE' || !penaltyModalPlayer.currentPenalty
+                    ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                OK
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentGame = sets[currentSetIndex]?.games[currentGameIndex];
+                  if (currentGame) {
+                    applyPenalty(currentGame.id, penaltyModalPlayer.playerId, 'PLUS_2');
+                  }
+                  setPenaltyModalPlayer(null);
+                }}
+                className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all ${
+                  penaltyModalPlayer.currentPenalty === 'PLUS_2'
+                    ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                +2.00s
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentGame = sets[currentSetIndex]?.games[currentGameIndex];
+                  if (currentGame) {
+                    applyPenalty(currentGame.id, penaltyModalPlayer.playerId, 'DNF');
+                  }
+                  setPenaltyModalPlayer(null);
+                }}
+                className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all ${
+                  penaltyModalPlayer.currentPenalty === 'DNF'
+                    ? 'bg-red-500 text-white border-red-600 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                DNF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

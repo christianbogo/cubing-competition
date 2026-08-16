@@ -153,7 +153,7 @@ export function calculateGameScores(
         falseStartDeltaMs: entry.falseStartDeltaMs,
         isDNF: true,
         rank: totalActive,
-        score: settings.differentialDNFScore,
+        score: settings.differentialDNFScore ?? 300,
       };
     });
   }

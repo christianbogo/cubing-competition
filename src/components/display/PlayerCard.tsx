@@ -1,5 +1,4 @@
-import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
 import { PenaltyType, Player, ScoringMode } from '@/types/tournament';
 import { formatTime } from '@/utils/formatters';
 
@@ -8,6 +7,7 @@ interface PlayerCardProps {
   rank?: number;
   totalActive: number;
   displayTimeMs: number;
+  raceStartTime?: number | null;
   isHeld: boolean;
   isLockedIn: boolean;
   isRunning: boolean;
@@ -17,12 +17,19 @@ interface PlayerCardProps {
   penalty?: PenaltyType;
   lastRoundScore?: number;
   gamePoints: number;
+  pointsFloor?: number;
   setWins: number;
   gameWins: number;
   targetSets: number;
   targetGames: number;
   scoringMode: ScoringMode;
   isTeamMode?: boolean;
+  liveStats?: { averageTimeMs: number; stdDevMs: number; count: number };
+  isGameWinner?: boolean;
+  isSetWinner?: boolean;
+  onClick?: () => void;
+  isClickable?: boolean;
+  differentialLeadFraction?: string;
 }
 
 function getOrdinal(n?: number): string {
@@ -32,12 +39,17 @@ function getOrdinal(n?: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-function getRankColor(rank?: number): string {
-  if (!rank) return 'text-neutral-400';
-  if (rank === 1) return 'text-amber-400';
-  if (rank === 2) return 'text-slate-300';
-  if (rank === 3) return 'text-amber-600';
-  return 'text-neutral-400';
+function getRankBadgeStyle(rank?: number): string {
+  if (rank === 1) {
+    return 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40';
+  }
+  if (rank === 2) {
+    return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700';
+  }
+  if (rank === 3) {
+    return 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-500 border-amber-200 dark:border-amber-800/40';
+  }
+  return 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800';
 }
 
 export const PlayerCard: React.FC<PlayerCardProps> = ({
@@ -52,175 +64,226 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   penalty = 'NONE',
   lastRoundScore,
   gamePoints,
+  pointsFloor,
   setWins,
   gameWins,
   targetSets,
   targetGames,
   isTeamMode = false,
+  raceStartTime,
+  liveStats,
+  isGameWinner = false,
+  isSetWinner = false,
+  onClick,
+  isClickable = false,
+  differentialLeadFraction,
 }) => {
+  const timeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isRunning || !raceStartTime) return;
+
+    let rafId: number;
+    const loop = () => {
+      if (timeRef.current) {
+        const currentMs = Math.max(0, performance.now() - raceStartTime);
+        timeRef.current.textContent = formatTime(currentMs, { penalty });
+      }
+      rafId = requestAnimationFrame(loop);
+    };
+    rafId = requestAnimationFrame(loop);
+
+    return () => cancelAnimationFrame(rafId);
+  }, [isRunning, raceStartTime, penalty]);
+  const isBot = player.role === 'BOT';
+  const botConfig = player.botConfig;
+
   const isFalseStart = falseStartDeltaMs > 0;
   const falseStartPenaltyMs = falseStartDeltaMs * falseStartMultiplier;
+  const isPenalized = isFalseStart || penalty === 'PLUS_2' || penalty === 'DNF';
 
-  // When finished with a false start, show the total final time including the start penalty
-  const effectiveTimeMs =
-    isFinished && isFalseStart ? displayTimeMs + falseStartPenaltyMs : displayTimeMs;
+  const formattedTime = formatTime(displayTimeMs, { penalty });
 
-  const formattedTime = formatTime(effectiveTimeMs, { penalty });
-
-  const showRank = isFinished && rank !== undefined && displayTimeMs > 0;
+  const showRank = isFinished && !isHeld && !isRunning && rank !== undefined && displayTimeMs > 0;
   const ordinalRank = showRank ? getOrdinal(rank) : '';
-  const rankColor = showRank ? getRankColor(rank) : 'text-neutral-400';
 
-  // If finished with a false start penalty or DNF/+2, render the time in red
-  const timeTextColor = isFinished
-    ? isFalseStart || penalty === 'DNF' || penalty === 'PLUS_2'
-      ? 'text-red-500'
-      : 'text-white'
-    : isRunning
-    ? 'text-emerald-400'
+  // Ready up (isHeld) takes priority over finished/standby state
+  const timeTextColor = isRunning
+    ? 'text-emerald-600 dark:text-emerald-400 font-bold'
     : isHeld
-    ? 'text-amber-300'
-    : 'text-neutral-500';
+      ? 'text-amber-600 dark:text-amber-400 font-black animate-pulse'
+      : (isFinished || penalty === 'DNF' || penalty === 'PLUS_2' || isFalseStart)
+        ? isPenalized
+          ? 'text-red-600 dark:text-red-500 font-black'
+          : 'text-slate-900 dark:text-white font-black'
+        : 'text-slate-400 dark:text-slate-500';
+
+  // Card border and background styling with Game Winner & Set Winner highlights
+  const cardStyle = isRunning
+    ? 'bg-emerald-50/50 dark:bg-slate-900/90 border-emerald-500/80 shadow-lg shadow-emerald-500/15 ring-2 ring-emerald-500/40'
+    : isHeld
+      ? 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-400 dark:border-amber-500 shadow-md shadow-amber-500/20 ring-2 ring-amber-400/50 scale-[1.01]'
+      : isSetWinner
+        ? 'bg-gradient-to-b from-amber-100/90 via-amber-50 to-white dark:from-amber-950/70 dark:via-slate-900 dark:to-slate-950 border-amber-400 dark:border-amber-500 shadow-2xl shadow-amber-500/30 ring-4 ring-amber-400/60 scale-[1.02]'
+        : isGameWinner
+          ? 'bg-gradient-to-b from-amber-50/90 to-white dark:from-amber-950/50 dark:to-slate-900 border-amber-400 dark:border-amber-500 shadow-xl shadow-amber-500/20 ring-2 sm:ring-4 ring-amber-400/40 scale-[1.01]'
+          : isFinished
+            ? isPenalized
+              ? 'bg-red-50/40 dark:bg-red-950/20 border-red-300 dark:border-red-900/60 shadow-sm'
+              : 'bg-white dark:bg-slate-900/90 border-slate-200 dark:border-slate-800 shadow-sm'
+            : 'bg-white dark:bg-slate-900/70 border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm';
 
   return (
     <div
-      className={`relative flex flex-col justify-between rounded-2xl border p-3.5 sm:p-5 transition-all duration-200 select-none overflow-hidden ${
-        isRunning
-          ? 'bg-neutral-900/90 border-emerald-500/70 shadow-xl shadow-emerald-500/15 ring-1 ring-emerald-500/40'
-          : isFinished
-          ? isFalseStart
-            ? 'bg-red-950/20 border-red-900/60 shadow-md shadow-red-500/10'
-            : 'bg-neutral-950/90 border-neutral-800 shadow-md'
-          : isHeld
-          ? 'bg-amber-950/30 border-amber-500/60 shadow-lg shadow-amber-500/10'
-          : 'bg-neutral-950/70 border-neutral-800/80 hover:border-neutral-700'
-      }`}
+      onClick={isClickable ? onClick : undefined}
+      className={`relative w-full h-full min-h-[130px] sm:min-h-[140px] flex flex-col justify-between rounded-3xl border p-3 sm:p-4 transition-all duration-200 select-none overflow-hidden ${cardStyle} ${isClickable ? 'cursor-pointer hover:border-amber-400/80 dark:hover:border-amber-500/80 hover:shadow-md' : ''
+        }`}
     >
-      {/* Top Section: Key Badge, Name + Score on same line, Shapes below (only in FFA) */}
-      <div className="flex items-start gap-2.5 sm:gap-3">
-        {/* Key Binding Pill */}
-        <div
-          className={`flex items-center justify-center font-mono font-black text-xs sm:text-sm w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition-all shrink-0 ${
-            isHeld
-              ? 'bg-amber-400 text-black border-amber-300 shadow-md shadow-amber-400/50 scale-105'
-              : isRunning
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-              : 'bg-neutral-900 text-neutral-300 border-neutral-700'
-          }`}
-        >
-          {player.key.toUpperCase()}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {/* Name and Game Score on the SAME line */}
-          <div className="flex items-baseline gap-1.5 sm:gap-2 truncate">
+      {/* Top Header: Name + Score, Bot Stats/Shapes, and Rank Badge */}
+      <div className="flex items-start justify-between gap-1.5">
+        <div className="min-w-0 flex-1">
+          {/* Player Name and Points */}
+          <div className="flex items-baseline gap-1.5">
             <h3
-              className={`text-base sm:text-lg md:text-xl font-black tracking-tight ${player.color} uppercase truncate`}
+              className={`text-sm sm:text-base font-black tracking-tight ${player.color} uppercase truncate max-w-[110px] sm:max-w-[150px]`}
             >
               {player.name}
             </h3>
 
-            {/* Score & +Score on same line */}
-            <div className="flex items-baseline gap-1 font-mono">
-              <span className="text-white font-black text-sm sm:text-base md:text-lg">
-                {gamePoints}
+            <div className="flex items-baseline gap-1 font-mono shrink-0">
+              <span className="text-slate-900 dark:text-white font-black text-xs sm:text-sm">
+                {gamePoints}{pointsFloor ? `/${pointsFloor}` : ''}
               </span>
+              {differentialLeadFraction && (
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs">
+                  ({differentialLeadFraction})
+                </span>
+              )}
               {lastRoundScore !== undefined && lastRoundScore > 0 && (
-                <span className="text-yellow-400 font-black text-xs sm:text-sm">
+                <span className="text-amber-600 dark:text-amber-400 font-black text-[11px]">
                   +{lastRoundScore}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Set & Game Wins Shapes (Rendered ONLY in Free For All mode) */}
-          {!isTeamMode && (
-            <div className="flex items-center gap-2 mt-1">
-              {/* Set Wins (Diamonds) */}
-              <div
-                className="flex items-center gap-1"
-                title={`${setWins} / ${targetSets} Sets Won`}
-              >
-                {Array.from({ length: Math.max(1, targetSets) }).map((_, idx) => {
-                  const isWon = idx < setWins;
-                  return (
-                    <span
-                      key={`set-${idx}`}
-                      style={
-                        isWon
-                          ? { backgroundColor: player.accentColor, borderColor: player.accentColor }
-                          : undefined
-                      }
-                      className={`w-2.5 h-2.5 rotate-45 rounded-[1px] border transition-all ${
-                        isWon ? 'shadow-sm' : 'bg-neutral-950 border-neutral-700'
-                      }`}
-                    />
-                  );
-                })}
-              </div>
+          {/* Fixed height container for Set & Game Wins Shapes */}
+          <div className="min-h-[14px] flex items-center mt-0.5">
+            {!isTeamMode && (
+              <div className="flex items-center gap-1.5">
+                {/* Set Wins (Diamonds) */}
+                <div
+                  className="flex items-center gap-1"
+                  title={`${setWins} / ${targetSets} Sets Won`}
+                >
+                  {Array.from({ length: Math.max(1, targetSets) }).map((_, idx) => {
+                    const isWon = idx < setWins;
+                    return (
+                      <span
+                        key={`set-${idx}`}
+                        style={
+                          isWon
+                            ? { backgroundColor: player.accentColor, borderColor: player.accentColor }
+                            : undefined
+                        }
+                        className={`w-2 h-2 rotate-45 rounded-[1px] border transition-all ${isWon
+                            ? 'shadow-sm'
+                            : 'bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-700'
+                          }`}
+                      />
+                    );
+                  })}
+                </div>
 
-              {/* Divider */}
-              <span className="text-neutral-700 text-[10px]">•</span>
+                <span className="text-slate-300 dark:text-slate-700 text-[8px]">•</span>
 
-              {/* Game Wins (Circles) */}
-              <div
-                className="flex items-center gap-1"
-                title={`${gameWins} / ${targetGames} Games Won in Set`}>
-                {Array.from({ length: Math.max(1, targetGames) }).map((_, idx) => {
-                  const isWon = idx < gameWins;
-                  return (
-                    <span
-                      key={`game-${idx}`}
-                      style={
-                        isWon
-                          ? { backgroundColor: player.accentColor, borderColor: player.accentColor }
-                          : undefined
-                      }
-                      className={`w-2.5 h-2.5 rounded-full border transition-all ${
-                        isWon ? 'shadow-sm' : 'bg-neutral-950 border-neutral-700'
-                      }`}
-                    />
-                  );
-                })}
+                {/* Game Wins (Circles) */}
+                <div
+                  className="flex items-center gap-1"
+                  title={`${gameWins} / ${targetGames} Games Won in Set`}
+                >
+                  {Array.from({ length: Math.max(1, targetGames) }).map((_, idx) => {
+                    const isWon = idx < gameWins;
+                    return (
+                      <span
+                        key={`game-${idx}`}
+                        style={
+                          isWon
+                            ? { backgroundColor: player.accentColor, borderColor: player.accentColor }
+                            : undefined
+                        }
+                        className={`w-2 h-2 rounded-full border transition-all ${isWon
+                            ? 'shadow-sm'
+                            : 'bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-700'
+                          }`}
+                      />
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        {/* Top-Right: Rank Badge or Ready Pill or Winner Badge */}
+        {isHeld ? (
+          <span className="px-2 py-0.5 rounded-lg border text-[10px] font-mono font-black uppercase shrink-0 bg-amber-400 text-slate-950 border-amber-300 shadow-sm animate-pulse">
+            READY
+          </span>
+        ) : isSetWinner ? (
+          <span className="px-2 py-0.5 rounded-lg border text-[11px] font-mono font-black uppercase shrink-0 bg-amber-400 text-slate-950 border-amber-300 shadow-md animate-bounce">
+            🏆 SET WINNER
+          </span>
+        ) : isGameWinner ? (
+          <span className="px-2 py-0.5 rounded-lg border text-[10px] font-mono font-black uppercase shrink-0 bg-amber-400 text-slate-950 border-amber-300 shadow-sm animate-pulse">
+            👑 GAME WINNER
+          </span>
+        ) : showRank ? (
+          <span
+            className={`px-1.5 py-0.5 rounded-md border text-[11px] font-mono font-black uppercase shrink-0 transition-all ${getRankBadgeStyle(
+              rank
+            )}`}
+          >
+            {ordinalRank}
+          </span>
+        ) : null}
       </div>
 
-      {/* Center / Main Area: Place (small) & Time (large) fitting without overflow */}
-      <div className="my-2.5 sm:my-4 text-center">
-        <div className="flex items-baseline justify-center gap-1.5 sm:gap-2">
-          {showRank && (
-            <span
-              className={`${rankColor} text-sm sm:text-base md:text-lg font-bold font-mono tracking-tight shrink-0`}
-            >
-              {ordinalRank}
-            </span>
-          )}
-          <span
-            className={`font-mono text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter tabular-nums ${timeTextColor}`}
-          >
-            {formattedTime}
-          </span>
+      {/* Main Center Area: Large Time display */}
+      <div className="my-0.5 sm:my-1 text-center">
+        <div
+          ref={timeRef}
+          className={`font-mono text-3xl sm:text-4xl md:text-5xl font-black tracking-tight tabular-nums transition-colors duration-150 ${timeTextColor}`}
+        >
+          {isHeld ? '0.00' : formattedTime}
         </div>
 
-        {/* Penalties & Alerts */}
-        <div className="min-h-[18px] mt-1 flex items-center justify-center gap-1.5">
-          {penalty === 'PLUS_2' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] sm:text-[11px] font-mono font-bold">
+        {/* Bot Avg & Std Variance OR Host Live Avg & Std Variance */}
+        {isBot && botConfig ? (
+          <div className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0">
+            ~{(botConfig.averageTimeMs / 1000).toFixed(1)}s (±{(botConfig.stdDevMs / 1000).toFixed(1)}s)
+          </div>
+        ) : liveStats && liveStats.count > 0 ? (
+          <div className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0">
+            ~{(liveStats.averageTimeMs / 1000).toFixed(1)}s (±{(liveStats.stdDevMs / 1000).toFixed(1)}s)
+          </div>
+        ) : null}
+
+        {/* Penalties & Subtitle Alerts */}
+        <div className="min-h-[2px] mt-0.5 flex items-center justify-center gap-1 flex-wrap">
+          {!isHeld && !isRunning && penalty === 'PLUS_2' && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-orange-100 dark:bg-orange-950/60 border border-orange-300 dark:border-orange-500/40 text-orange-700 dark:text-orange-400 text-[10px] font-mono font-bold">
               +2.00s
             </span>
           )}
-          {penalty === 'DNF' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-600/30 border border-red-500/50 text-red-300 text-[10px] sm:text-[11px] font-mono font-black tracking-wider">
+          {!isHeld && !isRunning && penalty === 'DNF' && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-500/40 text-red-700 dark:text-red-400 text-[10px] font-mono font-bold">
               DNF
             </span>
           )}
-          {isFalseStart && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] sm:text-[11px] font-mono font-bold">
-              <AlertTriangle className="w-3 h-3" />
-              FALSE START (+{(falseStartPenaltyMs / 1000).toFixed(2)}s)
+          {!isHeld && !isRunning && isFalseStart && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-red-100 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-[9px] font-mono font-semibold">
+              Early: +{(falseStartPenaltyMs / 1000).toFixed(2)}s
             </span>
           )}
         </div>

@@ -45,11 +45,11 @@ export const HardwareTester: React.FC = () => {
     <div className="w-full flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-base font-black uppercase text-white tracking-wider flex items-center gap-2">
-            <Keyboard className="w-4 h-4 text-amber-400" />
+          <h3 className="text-base font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-2">
+            <Keyboard className="w-4 h-4 text-amber-500" />
             Hardware & N-Key Rollover (NKRO) Diagnostic
           </h3>
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Press and hold multiple home-row keys at once to test for keyboard ghosting and simultaneous rollover support.
           </p>
         </div>
@@ -58,7 +58,7 @@ export const HardwareTester: React.FC = () => {
             setPressedKeys({});
             setMaxSimultaneous(0);
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 text-xs font-mono text-neutral-300 hover:text-white"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-sm"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Reset Peak</span>
@@ -67,19 +67,19 @@ export const HardwareTester: React.FC = () => {
 
       {/* Meter Banner */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-neutral-900/80 border border-neutral-800 text-center">
-          <span className="text-[11px] font-mono text-neutral-400 uppercase">Live Keys Held</span>
-          <div className="text-3xl font-black text-amber-400 font-mono mt-1">{currentlyPressedCount}</div>
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-center shadow-sm">
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase font-semibold">Live Keys Held</span>
+          <div className="text-3xl font-black text-amber-600 dark:text-amber-400 font-mono mt-1">{currentlyPressedCount}</div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-neutral-900/80 border border-neutral-800 text-center">
-          <span className="text-[11px] font-mono text-neutral-400 uppercase">Peak Registered</span>
-          <div className="text-3xl font-black text-emerald-400 font-mono mt-1">{maxSimultaneous} Keys</div>
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-center shadow-sm">
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase font-semibold">Peak Registered</span>
+          <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-1">{maxSimultaneous} Keys</div>
         </div>
 
-        <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col items-center justify-center text-center">
-          <span className="text-[11px] font-mono text-neutral-400 uppercase">Status</span>
-          <div className="flex items-center gap-1.5 text-xs font-mono font-bold mt-1 text-emerald-400">
+        <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center shadow-sm">
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase font-semibold">Status</span>
+          <div className="flex items-center gap-1.5 text-xs font-mono font-bold mt-1 text-emerald-600 dark:text-emerald-400">
             <CheckCircle className="w-4 h-4" />
             <span>{maxSimultaneous >= activePlayers.length ? 'NKRO Verified' : 'Ready to Test'}</span>
           </div>
@@ -87,8 +87,8 @@ export const HardwareTester: React.FC = () => {
       </div>
 
       {/* Keyboard Visualizer */}
-      <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-800 shadow-inner flex flex-col items-center">
-        <span className="text-xs font-mono text-neutral-500 uppercase tracking-widest mb-4">
+      <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-inner flex flex-col items-center">
+        <span className="text-xs font-mono text-slate-500 uppercase tracking-widest mb-4 font-semibold">
           Home Row Matrix (10-Player Key Controller)
         </span>
 
@@ -100,12 +100,12 @@ export const HardwareTester: React.FC = () => {
             return (
               <div key={key} className="flex flex-col items-center gap-1.5">
                 <div
-                  className={`w-12 h-14 md:w-14 md:h-16 rounded-2xl border-2 flex flex-col items-center justify-center font-mono font-black text-lg md:text-xl transition-all duration-100 shadow-lg ${
+                  className={`w-12 h-14 md:w-14 md:h-16 rounded-2xl border-2 flex flex-col items-center justify-center font-mono font-black text-lg md:text-xl transition-all duration-100 shadow-sm ${
                     isDown
-                      ? 'bg-amber-400 text-black border-amber-200 shadow-amber-400/50 scale-110 -translate-y-1'
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-amber-400/50 scale-110 -translate-y-1'
                       : player
-                      ? 'bg-neutral-900 text-white border-neutral-700'
-                      : 'bg-neutral-950 text-neutral-600 border-neutral-800 opacity-50'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
+                      : 'bg-slate-100 dark:bg-slate-950 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800 opacity-50'
                   }`}
                 >
                   <span>{key.toUpperCase()}</span>
@@ -114,7 +114,7 @@ export const HardwareTester: React.FC = () => {
 
                 <span
                   className={`text-[10px] font-mono font-bold truncate max-w-[55px] ${
-                    player ? player.color : 'text-neutral-600'
+                    player ? player.color : 'text-slate-400 dark:text-slate-600'
                   }`}
                 >
                   {player ? player.name : 'Empty'}
@@ -126,8 +126,8 @@ export const HardwareTester: React.FC = () => {
       </div>
 
       {/* Hardware Tips */}
-      <div className="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800 text-xs text-neutral-400 space-y-1">
-        <div className="flex items-center gap-1.5 text-amber-400 font-bold font-mono">
+      <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-slate-900/50 border border-amber-200/80 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+        <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-bold font-mono">
           <AlertTriangle className="w-3.5 h-3.5" />
           <span>Hardware Recommendation:</span>
         </div>

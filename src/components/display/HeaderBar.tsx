@@ -1,21 +1,26 @@
+'use client';
+
 import React from 'react';
 import {
   Volume2,
   VolumeX,
   Sliders,
-  RotateCcw,
   Keyboard,
   Maximize2,
   Minimize2,
+  Activity,
+  Trophy,
 } from 'lucide-react';
 import { useTournamentStore } from '@/store/tournamentStore';
-import { useTimerStore } from '@/store/timerStore';
+import { CubeOnlineLogo } from './CubeOnlineLogo';
+import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderBarProps {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
   onOpenAdmin: () => void;
   onOpenKeyGuide: () => void;
+  onOpenOverview: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -23,72 +28,115 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onToggleFullscreen,
   onOpenAdmin,
   onOpenKeyGuide,
+  onOpenOverview,
 }) => {
-  const { settings, updateSettings, resetCurrentGame } = useTournamentStore();
-  const { resetForNewRace } = useTimerStore();
-
-  const handleResetGame = () => {
-    resetForNewRace();
-    resetCurrentGame();
-  };
+  const {
+    settings,
+    updateSettings,
+    matchStatus,
+    isActivityFeedOpen,
+    toggleActivityFeed,
+  } = useTournamentStore();
 
   return (
-    <header className={`w-full px-6 transition-all duration-200 flex items-center justify-end gap-3 select-none z-30 ${isFullscreen ? 'py-2' : 'py-4'}`}>
-      {/* Hide Reset, Keybinds, and Volume buttons in Fullscreen mode */}
-      {!isFullscreen && (
-        <>
-          {/* Reset Race Button */}
-          <button
-            onClick={handleResetGame}
-            title="Reset current race"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-neutral-950/80 hover:bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800/80 text-xs font-mono transition-all active:scale-95 shadow-sm"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset</span>
-          </button>
+    <header
+      className={`w-full px-4 sm:px-6 transition-all duration-200 flex items-center justify-between gap-3 select-none z-30 ${
+        isFullscreen
+          ? 'py-2'
+          : 'py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-950/70 backdrop-blur-md'
+      }`}
+    >
+      {/* Brand Identity / Logo with responsive non-wrapping title */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        <CubeOnlineLogo className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" />
+        <div className="whitespace-nowrap font-mono font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-slate-100 uppercase">
+          <span className="hidden sm:inline">Cube Online </span>
+          <span className="inline sm:hidden">CO </span>
+          <span className="text-amber-500 font-extrabold">Arena</span>
+        </div>
+      </div>
 
-          {/* Key Guide Button */}
-          <button
-            onClick={onOpenKeyGuide}
-            title="Show keyboard controller mapping"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-neutral-950/80 hover:bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800/80 text-xs font-mono transition-all active:scale-95 shadow-sm"
-          >
-            <Keyboard className="w-3.5 h-3.5" />
-            <span>Keybinds</span>
-          </button>
+      {/* Actions */}
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* Theme Switcher - Hidden in Fullscreen Mode */}
+        {!isFullscreen && <ThemeToggle />}
 
-          {/* Sound Toggle Button */}
+        {/* Hide Keybinds, Volume, and Feed toggle in Fullscreen mode */}
+        {!isFullscreen && (
+          <>
+            {matchStatus === 'IN_PROGRESS' && (
+              <>
+                {/* Match Overview Button */}
+                <button
+                  onClick={onOpenOverview}
+                  title="Show Full Match Overview & Solve Matrix"
+                  className="flex items-center px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-mono transition-all active:scale-95 shadow-sm"
+                >
+                  <span className="hidden md:inline">Match Overview</span>
+                </button>
+
+                {/* Key Guide Button */}
+                <button
+                  onClick={onOpenKeyGuide}
+                  title="Show keyboard controller mapping"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-mono transition-all active:scale-95 shadow-sm"
+                >
+                  <Keyboard className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Keybinds</span>
+                </button>
+              </>
+            )}
+
+            {/* Sound Toggle Button */}
+            <button
+              onClick={() => updateSettings({ soundEnabled: !settings.soundEnabled })}
+              title={settings.soundEnabled ? 'Mute sound' : 'Unmute sound'}
+              className={`p-2 rounded-xl border text-xs font-mono transition-all active:scale-95 shadow-sm ${
+                settings.soundEnabled
+                  ? 'bg-amber-50 dark:bg-slate-900 border-amber-300 dark:border-amber-500/40 text-amber-600 dark:text-amber-400'
+                  : 'bg-slate-100 dark:bg-slate-900 border-slate-300/80 dark:border-slate-800 text-slate-400 dark:text-slate-600'
+              }`}
+            >
+              {settings.soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+          </>
+        )}
+
+        {/* Activity Feed Toggle Button */}
+        {matchStatus === 'IN_PROGRESS' && (
           <button
-            onClick={() => updateSettings({ soundEnabled: !settings.soundEnabled })}
-            title={settings.soundEnabled ? 'Mute sound' : 'Unmute sound'}
-            className={`p-2.5 rounded-xl border text-xs font-mono transition-all active:scale-95 shadow-sm ${
-              settings.soundEnabled
-                ? 'bg-neutral-950/80 border-neutral-700/80 text-amber-400'
-                : 'bg-neutral-950/50 border-neutral-800/80 text-neutral-600'
+            onClick={() => toggleActivityFeed()}
+            title={isActivityFeedOpen ? 'Hide Activity Feed' : 'Show Activity Feed'}
+            className={`p-2 rounded-xl border text-xs font-mono transition-all active:scale-95 shadow-sm ${
+              isActivityFeedOpen
+                ? 'bg-amber-50 dark:bg-slate-900 border-amber-300 dark:border-amber-500/40 text-amber-600 dark:text-amber-400'
+                : 'bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-300/80 dark:border-slate-800 text-slate-400 dark:text-slate-500'
             }`}
           >
-            {settings.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            <Activity className="w-3.5 h-3.5" />
           </button>
-        </>
-      )}
+        )}
 
-      {/* Fullscreen Toggle Button */}
-      <button
-        onClick={onToggleFullscreen}
-        title={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen'}
-        className="p-2.5 rounded-xl bg-neutral-950/80 hover:bg-neutral-900 border border-neutral-800/80 text-neutral-400 hover:text-neutral-200 text-xs font-mono transition-all active:scale-95 shadow-sm"
-      >
-        {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-      </button>
+        {/* Fullscreen Toggle Button */}
+        <button
+          onClick={onToggleFullscreen}
+          title={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-300/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-mono transition-all active:scale-95 shadow-sm"
+        >
+          {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+        </button>
 
-      {/* Admin Dashboard Trigger */}
-      <button
-        onClick={onOpenAdmin}
-        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-200 hover:text-white font-medium text-xs border border-neutral-700/80 transition-all shadow-md active:scale-95"
-      >
-        <Sliders className="w-3.5 h-3.5 text-amber-400" />
-        <span>Admin</span>
-      </button>
+        {/* Lowkey Match Options Button */}
+        {matchStatus === 'IN_PROGRESS' && (
+          <button
+            onClick={onOpenAdmin}
+            title="Match Options"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-300/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-mono transition-all active:scale-95 shadow-sm"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
     </header>
   );
 };

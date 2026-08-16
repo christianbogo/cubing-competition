@@ -2,6 +2,11 @@ import { useEffect, useRef, useMemo } from 'react';
 import { soundEngine } from '@/audio/soundEffects';
 import { useTimerStore } from '@/store/timerStore';
 import { useTournamentStore } from '@/store/tournamentStore';
+import { useBotController } from '@/hooks/useBotController';
+import { formatTime } from '@/utils/formatters';
+
+const LOCK_IN_DURATION_MS = 500;
+const COUNTDOWN_STAGE_INTERVAL_MS = 400;
 
 export function useKeyboardController() {
   const { players, settings, recordCompletedGame, isAdminOpen } = useTournamentStore();
@@ -14,23 +19,33 @@ export function useKeyboardController() {
   const handleKeyUp = useTimerStore((s) => s.handleKeyUp);
   const startRace = useTimerStore((s) => s.startRace);
   const stopPlayer = useTimerStore((s) => s.stopPlayer);
-  const updateTimerFrame = useTimerStore((s) => s.updateTimerFrame);
+
+
+  // Activate Bot AI controller logic
+  useBotController();
 
   const activePlayers = useMemo(() => players.filter((p) => p.active), [players]);
   const activePlayerIds = useMemo(() => activePlayers.map((p) => p.id), [activePlayers]);
   const activePlayerIdsKey = useMemo(() => activePlayerIds.join(','), [activePlayerIds]);
 
+  const hostPlayer = useMemo(
+    () => activePlayers.find((p) => p.role === 'HOST') || activePlayers[0],
+    [activePlayers]
+  );
+
   const settingsRef = useRef(settings);
-  settingsRef.current = settings;
-
   const activePlayersRef = useRef(activePlayers);
-  activePlayersRef.current = activePlayers;
-
   const activePlayerIdsRef = useRef(activePlayerIds);
-  activePlayerIdsRef.current = activePlayerIds;
-
+  const hostPlayerRef = useRef(hostPlayer);
   const isAdminOpenRef = useRef(isAdminOpen);
-  isAdminOpenRef.current = isAdminOpen;
+
+  useEffect(() => {
+    settingsRef.current = settings;
+    activePlayersRef.current = activePlayers;
+    activePlayerIdsRef.current = activePlayerIds;
+    hostPlayerRef.current = hostPlayer;
+    isAdminOpenRef.current = isAdminOpen;
+  });
 
   // Sync sound settings
   useEffect(() => {
@@ -41,20 +56,11 @@ export function useKeyboardController() {
   // Initialize timer players when active players change
   useEffect(() => {
     initPlayers(activePlayerIds);
-  }, [activePlayerIdsKey, initPlayers]);
+  }, [activePlayerIdsKey, initPlayers, activePlayerIds]);
 
-  // High-frequency 60fps animation frame loop for running timers
-  useEffect(() => {
-    let rafId: number;
-    const loop = () => {
-      updateTimerFrame(performance.now());
-      rafId = requestAnimationFrame(loop);
-    };
-    rafId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafId);
-  }, [updateTimerFrame]);
 
-  // Check whether all active players are currently holding their keys
+
+  // Check whether all active players (Host + Bots) are currently holding
   const allHeld = useMemo(() => {
     return (
       activePlayerIds.length > 0 &&
@@ -78,7 +84,7 @@ export function useKeyboardController() {
 
           if (stillAllHeld) {
             const now = performance.now();
-            const stageInterval = settingsRef.current.countdownStageIntervalMs;
+            const stageInterval = COUNTDOWN_STAGE_INTERVAL_MS;
             const randomPause = 600 + Math.random() * 1200;
             const targetGreen = now + 350 + stageInterval * 2 + randomPause;
 
@@ -95,7 +101,7 @@ export function useKeyboardController() {
             }, 350);
           }
           lockInTimeoutRef.current = null;
-        }, settingsRef.current.lockInDurationMs);
+        }, LOCK_IN_DURATION_MS);
       }
     } else {
       if (lockInTimeoutRef.current) {
@@ -112,12 +118,12 @@ export function useKeyboardController() {
     };
   }, [allHeld, raceState, setRaceState]);
 
-  // Dedicated Drag Race Countdown Runner with RANDOMIZED PAUSE before Green
+  // Dedicated Drag Race Countdown Runner through all yellow/orange stages
   useEffect(() => {
     if (raceState !== 'DRAG_COUNTDOWN') return;
 
     const startTime = performance.now();
-    const stageInterval = settingsRef.current.countdownStageIntervalMs; // default 500ms
+    const stageInterval = COUNTDOWN_STAGE_INTERVAL_MS;
     const randomPauseAfterStage3 = 600 + Math.random() * 1200;
     const totalDurationBeforeGreen = stageInterval * 2 + randomPauseAfterStage3;
     const scheduledGreen = startTime + totalDurationBeforeGreen;
@@ -143,7 +149,7 @@ export function useKeyboardController() {
       soundEngine.playCountdownBeep(3);
     }, stageInterval * 2);
 
-    // Green Launch (at randomized delay)
+    // Green Launch (at randomized delay after Stage 3)
     const greenTimer = setTimeout(() => {
       const greenTime = performance.now();
       startRace(greenTime);
@@ -169,7 +175,10 @@ export function useKeyboardController() {
       hasRecordedCurrentRaceRef.current = true;
 
       const currentTimerPlayers = useTimerStore.getState().players;
-      const solvesData: Record<string, { rawTimeMs: number; falseStartDeltaMs: number; penalty: 'NONE' | 'PLUS_2' | 'DNF' }> = {};
+      const solvesData: Record<
+        string,
+        { rawTimeMs: number; falseStartDeltaMs: number; penalty: 'NONE' | 'PLUS_2' | 'DNF' }
+      > = {};
 
       activePlayersRef.current.forEach((p) => {
         const tp = currentTimerPlayers[p.id];
@@ -189,31 +198,67 @@ export function useKeyboardController() {
     }
   }, [raceState, recordCompletedGame]);
 
-  // Keyboard Event Listeners
+  // Keyboard Spacebar Controller for the Host Player
   useEffect(() => {
     const handleKeyDownEvent = (e: KeyboardEvent) => {
       if (isAdminOpenRef.current) return;
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
         return;
       }
 
+      if (e.code !== 'Space' && e.key !== ' ') return;
       if (e.repeat) return;
-      const pressedKey = e.key.toLowerCase();
 
-      const player = activePlayersRef.current.find((p) => p.key.toLowerCase() === pressedKey);
-      if (!player) return;
+      const host = hostPlayerRef.current;
+      if (!host) return;
 
       e.preventDefault();
       const currentRaceState = useTimerStore.getState().raceState;
 
       if (currentRaceState === 'RACING') {
-        const rank = stopPlayer(player.id, performance.now());
+        const rank = stopPlayer(host.id, performance.now());
         if (rank > 0) {
           soundEngine.playFinishChime(rank);
+          const tp = useTimerStore.getState().players[host.id];
+          const rawMs = tp?.finishTimeMs || 0;
+          const timeFormatted = formatTime(rawMs);
+          const tState = useTournamentStore.getState();
+          const currentGame = tState.sets[tState.currentSetIndex]?.games[tState.currentGameIndex];
+
+          tState.addActivityItem({
+            type: 'SOLVE_FINISHED',
+            playerId: host.id,
+            playerName: host.name,
+            playerColor: host.color,
+            team: host.team,
+            timeMs: rawMs,
+            penalty: 'NONE',
+            rank,
+            gameId: currentGame?.id,
+            roundIndex: tState.currentRoundIndex,
+            message: `${host.name} finished in ${timeFormatted}${rawMs < 60000 ? 's' : ''} (#${rank})`,
+          });
+
+          if ((tp?.falseStartDeltaMs || 0) > 0) {
+            tState.addActivityItem({
+              type: 'FALSE_START',
+              playerId: host.id,
+              playerName: host.name,
+              playerColor: host.color,
+              team: host.team,
+              message: `⚠️ ${host.name} early release (+${(
+                ((tp?.falseStartDeltaMs || 0) * tState.settings.falseStartMultiplier) /
+                1000
+              ).toFixed(2)}s)`,
+            });
+          }
         }
       } else {
-        handleKeyDown(player.id, performance.now(), () => {
+        handleKeyDown(host.id, performance.now(), () => {
           useTournamentStore.getState().startNextGame();
         });
       }
@@ -222,16 +267,20 @@ export function useKeyboardController() {
     const handleKeyUpEvent = (e: KeyboardEvent) => {
       if (isAdminOpenRef.current) return;
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
         return;
       }
 
-      const pressedKey = e.key.toLowerCase();
-      const player = activePlayersRef.current.find((p) => p.key.toLowerCase() === pressedKey);
-      if (!player) return;
+      if (e.code !== 'Space' && e.key !== ' ') return;
+
+      const host = hostPlayerRef.current;
+      if (!host) return;
 
       e.preventDefault();
-      const result = handleKeyUp(player.id, performance.now());
+      const result = handleKeyUp(host.id, performance.now());
       if (result.isFalseStart) {
         soundEngine.playFalseStart();
       }

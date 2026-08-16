@@ -1,6 +1,5 @@
 import React from 'react';
-import { X, Keyboard, Hand, CheckCircle2, AlertOctagon } from 'lucide-react';
-import { useTournamentStore } from '@/store/tournamentStore';
+import { X, Keyboard, Sparkles, Bot, Zap, Trophy } from 'lucide-react';
 
 interface KeyGuideModalProps {
   isOpen: boolean;
@@ -8,96 +7,106 @@ interface KeyGuideModalProps {
 }
 
 export const KeyGuideModal: React.FC<KeyGuideModalProps> = ({ isOpen, onClose }) => {
-  const { players } = useTournamentStore();
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-      <div className="relative w-full max-w-xl bg-neutral-950 border border-neutral-800 rounded-3xl p-6 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Keyboard className="w-5 h-5 text-amber-400" />
-            <h3 className="text-base font-black uppercase text-white font-mono tracking-wider">
-              Keyboard Controller Guide
-            </h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div
+        className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-slate-900 dark:text-slate-100 font-mono select-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              <Keyboard className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black uppercase tracking-tight">
+                Controls & How to Play
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Single-player Spacebar controls vs Bot AI opponents
+              </p>
+            </div>
           </div>
+
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-white bg-neutral-900 border border-neutral-800"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Home Row Mapping */}
-        <div className="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-3">
-          <h4 className="text-xs font-mono font-bold text-neutral-300 uppercase tracking-wider">
-            Active Home-Row Key Mappings
-          </h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {players
-              .filter((p) => p.active)
-              .map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-2.5 p-2.5 rounded-xl bg-neutral-950 border border-neutral-800"
-                >
-                  <span className="w-8 h-8 rounded-lg bg-neutral-900 border border-amber-500/50 flex items-center justify-center font-black font-mono text-amber-400 text-sm shadow-inner">
-                    {p.key.toUpperCase()}
-                  </span>
-                  <div>
-                    <div className={`font-black text-xs ${p.color}`}>{p.name}</div>
-                    <div className="text-[10px] text-neutral-500 font-mono">Player Key</div>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        {/* Step-by-step How to Race */}
-        <div className="space-y-2.5 text-xs text-neutral-300 font-sans">
-          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-neutral-900/40 border border-neutral-800/80">
-            <Hand className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-white">1. Hold Key to Ready: </span>
-              Each player places a finger on their key and holds it down.
+        {/* Steps Guide */}
+        <div className="space-y-3.5 text-xs text-slate-600 dark:text-slate-400">
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40">
+            <div className="p-2 rounded-xl bg-amber-400 text-black font-black shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white uppercase block">
+                1. Press & Hold Spacebar to Ready Up
+              </span>
+              <p className="leading-relaxed">
+                Hold the <strong className="text-amber-500 font-bold">Spacebar</strong> to enter the starting gate. Active Bot opponents will automatically ready up within 1–2 seconds.
+              </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-neutral-900/40 border border-neutral-800/80">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-white">2. 1.0s Lock-In: </span>
-              Once all players hold for 1.0s, the drag race stage sequence activates.
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+            <div className="p-2 rounded-xl bg-amber-500 text-slate-950 font-black shrink-0">
+              <Zap className="w-4 h-4" />
+            </div>
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white uppercase block">
+                2. Wait for Green Light & Release
+              </span>
+              <p className="leading-relaxed">
+                Watch the Christmas tree lights countdown (Yellow 1, 2, 3). Release <strong className="text-amber-500 font-bold">Spacebar</strong> when the light flashes green to launch your solve timer!
+              </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-neutral-900/40 border border-neutral-800/80">
-            <AlertOctagon className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-white">3. Countdown & False Start: </span>
-              Yellow stage lights count down. Do NOT release your key early or you will receive a false start penalty!
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+            <div className="p-2 rounded-xl bg-emerald-500 text-slate-950 font-black shrink-0">
+              <Trophy className="w-4 h-4" />
+            </div>
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white uppercase block">
+                3. Tap Spacebar to Stop Timer
+              </span>
+              <p className="leading-relaxed">
+                When you finish your solve, tap <strong className="text-amber-500 font-bold">Spacebar</strong> immediately to lock in your time and placement.
+              </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-neutral-900/40 border border-neutral-800/80">
-            <div className="w-4 h-4 rounded-full bg-emerald-400 shrink-0 mt-0.5 flex items-center justify-center font-black text-black text-[9px]">
-              GO
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+            <div className="p-2 rounded-xl bg-blue-500 text-white font-black shrink-0">
+              <Bot className="w-4 h-4" />
             </div>
-            <div>
-              <span className="font-bold text-white">4. Green Light & Finish: </span>
-              On the green flash and 1000Hz tone, release to solve! Tap your key again when finished to lock your time.
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white uppercase block">
+                4. Intelligent Bot Opponents
+              </span>
+              <p className="leading-relaxed">
+                Bots simulate realistic cube solves using Gaussian distributions based on their configured speed and discipline maturity.
+              </p>
             </div>
           </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="w-full py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-xs font-mono font-bold text-white transition-all"
-        >
-          Got It, Let&apos;s Race!
-        </button>
+        {/* Footer */}
+        <div className="pt-2 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95"
+          >
+            Got It, Let&apos;s Race
+          </button>
+        </div>
       </div>
     </div>
   );

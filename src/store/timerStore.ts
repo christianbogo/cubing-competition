@@ -35,7 +35,7 @@ interface TimerStoreState {
   handleKeyUp: (playerId: string, timestamp: number) => { isFalseStart: boolean; deltaMs: number };
   startRace: (greenLightTimestamp: number) => void;
   stopPlayer: (playerId: string, finishTimestamp: number) => number;
-  updateTimerFrame: (now: number) => void;
+
   resetForNewRace: () => void;
 }
 
@@ -261,29 +261,7 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
     return finishRank;
   },
 
-  updateTimerFrame: (now) => {
-    const { raceState, raceStartTime, players } = get();
-    if (raceState !== 'RACING' || !raceStartTime) return;
 
-    let hasChanges = false;
-    const updated: Record<string, PlayerTimerData> = {};
-
-    Object.entries(players).forEach(([id, p]) => {
-      if (p.isRunning && !p.isFinished) {
-        hasChanges = true;
-        updated[id] = {
-          ...p,
-          rawTimeMs: Math.max(0, Math.round(now - raceStartTime)),
-        };
-      } else {
-        updated[id] = p;
-      }
-    });
-
-    if (hasChanges) {
-      set({ players: updated });
-    }
-  },
 
   resetForNewRace: () => {
     const { players } = get();

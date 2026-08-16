@@ -25,7 +25,11 @@ class SoundEngine {
     this.enabled = enabled;
   }
 
-  public setVolume(vol: number) {
+  public setVolume(vol?: number) {
+    if (vol === undefined || vol === null || isNaN(vol)) {
+      this.volume = 0.5;
+      return;
+    }
     this.volume = Math.max(0, Math.min(1, vol));
   }
 
