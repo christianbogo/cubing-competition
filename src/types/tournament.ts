@@ -29,6 +29,7 @@ export interface Player {
   active: boolean;
   team?: TeamId;
   botConfig?: BotConfig;
+  timeNerfMs?: number;
 }
 
 export interface Solve {

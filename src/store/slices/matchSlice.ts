@@ -271,8 +271,9 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
         const data = solvesData[p.id] || { rawTimeMs: 0, penalty: 'NONE', falseStartDeltaMs: 0 };
         const falseStartPenalty = data.falseStartDeltaMs * settings.falseStartMultiplier;
         const plus2Penalty = data.penalty === 'PLUS_2' ? 2000 : 0;
+        const timeNerf = p.timeNerfMs || 0;
         const isDNF = data.penalty === 'DNF';
-        const finalTimeMs = isDNF ? 0 : data.rawTimeMs + falseStartPenalty + plus2Penalty;
+        const finalTimeMs = isDNF ? 0 : data.rawTimeMs + falseStartPenalty + plus2Penalty + timeNerf;
         const timeFormatted = formatTime(finalTimeMs, { penalty: data.penalty });
         const timeSuffix = !isDNF && finalTimeMs < 60000 ? 's' : '';
 
@@ -537,8 +538,9 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
               if (solve) {
                 const fsPenalty = (solve.falseStartDeltaMs || 0) * state.settings.falseStartMultiplier;
                 const plus2 = solve.penalty === 'PLUS_2' ? 2000 : 0;
+                const timeNerf = p.timeNerfMs || 0;
                 const isDNF = solve.penalty === 'DNF';
-                const effective = isDNF ? 99999999 : solve.rawTimeMs + fsPenalty + plus2;
+                const effective = isDNF ? 99999999 : solve.rawTimeMs + fsPenalty + plus2 + timeNerf;
                 solvedList.push({ playerId: p.id, effectiveTimeMs: effective, isDNF, rawSolve: solve });
               }
             });
@@ -558,7 +560,9 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
 
               const fsDelta = item.rawSolve.falseStartDeltaMs || 0;
               const plus2 = item.rawSolve.penalty === 'PLUS_2' ? 2000 : 0;
-              const finalTimeMs = item.isDNF ? 0 : item.rawSolve.rawTimeMs + fsDelta * state.settings.falseStartMultiplier + plus2;
+              const pObj = state.players.find((p) => p.id === item.playerId);
+              const timeNerf = pObj?.timeNerfMs || 0;
+              const finalTimeMs = item.isDNF ? 0 : item.rawSolve.rawTimeMs + fsDelta * state.settings.falseStartMultiplier + plus2 + timeNerf;
 
               if (!r.solves) r.solves = {};
               if (!r.solves[item.playerId]) r.solves[item.playerId] = { ...item.rawSolve, rank, score, finalTimeMs };
@@ -572,7 +576,6 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
               lastRoundCalculatedScores[item.playerId] = score;
 
               runningGamePoints[item.playerId] = (runningGamePoints[item.playerId] || 0) + score;
-              const pObj = state.players.find((p) => p.id === item.playerId);
               const team = pObj?.team || 'RED';
               runningTeamPoints[team] = (runningTeamPoints[team] || 0) + score;
             });

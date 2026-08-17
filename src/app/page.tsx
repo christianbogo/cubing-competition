@@ -3,27 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { Trophy, Users, MonitorSmartphone, ArrowRight } from 'lucide-react';
-import { CubeOnlineLogo } from '@/components/display/CubeOnlineLogo';
-import { ThemeToggle } from '@/components/display/ThemeToggle';
-import { HeaderAuth } from '@/components/display/HeaderAuth';
+import { HeaderBar } from '@/components/display/HeaderBar';
 
 export default function LandingPage() {
   return (
     <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-amber-400 selection:text-slate-950 transition-colors duration-200">
       
       {/* Header */}
-      <header className="w-full h-16 flex items-center justify-between px-4 sm:px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-50 sticky top-0">
-        <div className="flex items-center gap-2">
-          <CubeOnlineLogo className="w-6 h-6 text-amber-500" />
-          <span className="font-black text-lg tracking-tight font-mono uppercase">
-            Cube<span className="text-amber-500">Online</span>
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <HeaderAuth />
-        </div>
-      </header>
+      <HeaderBar />
 
       {/* Hero Section */}
       <main className="flex-1 w-full flex flex-col items-center justify-center p-6 z-20">

@@ -12,6 +12,7 @@ interface TeamCardProps {
   targetGames: number;
   playerCount: number;
   differentialLeadFraction?: string;
+  pointsFloor?: number;
 }
 
 export const TeamCard: React.FC<TeamCardProps> = ({
@@ -23,6 +24,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   targetGames,
   playerCount,
   differentialLeadFraction,
+  pointsFloor,
 }) => {
   const isRed = team === 'RED';
   const teamColor = isRed ? 'text-red-600 dark:text-red-400' : 'text-cyan-600 dark:text-cyan-400';
@@ -120,7 +122,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
               ({differentialLeadFraction})
             </span>
           )}
-          <span>{gamePoints}</span>
+          <span>{gamePoints}{pointsFloor ? `/${pointsFloor}` : ''}</span>
         </div>
       </div>
     </div>

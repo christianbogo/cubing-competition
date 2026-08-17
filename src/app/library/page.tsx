@@ -5,9 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { getSavedMatches, deleteMatch, renameMatch, SavedMatch } from '@/lib/matchLibrary';
-import { CubeOnlineLogo } from '@/components/display/CubeOnlineLogo';
-import { ThemeToggle } from '@/components/display/ThemeToggle';
-import { HeaderAuth } from '@/components/display/HeaderAuth';
+import { HeaderBar } from '@/components/display/HeaderBar';
 import { BookOpen, Trash2, Edit2, Check, X, Clock, Trophy, Users } from 'lucide-react';
 import { formatPoints } from '@/utils/formatters';
 
@@ -69,18 +67,7 @@ export default function MatchLibraryPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-amber-400 selection:text-slate-950 transition-colors duration-200">
-      <header className="w-full h-16 flex items-center justify-between px-4 sm:px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-50 sticky top-0">
-        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <CubeOnlineLogo className="w-6 h-6 text-amber-500" />
-          <span className="font-black text-lg tracking-tight font-mono uppercase">
-            Cube<span className="text-amber-500">Online</span>
-          </span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <HeaderAuth />
-        </div>
-      </header>
+      <HeaderBar />
 
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
         <div className="flex items-center gap-3 mb-8">

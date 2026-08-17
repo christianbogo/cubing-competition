@@ -69,10 +69,10 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         penalty: undefined,
         finishTimeMs: null,
         finishRank: null,
-        lastPenalty: existing[id]?.lastPenalty ?? undefined,
-        lastFinishTimeMs: existing[id]?.lastFinishTimeMs ?? null,
-        lastFinishRank: existing[id]?.lastFinishRank ?? null,
-        lastFalseStartDeltaMs: existing[id]?.lastFalseStartDeltaMs ?? 0,
+        lastPenalty: undefined,
+        lastFinishTimeMs: null,
+        lastFinishRank: null,
+        lastFalseStartDeltaMs: 0,
       };
     });
     set({ players, raceState: 'IDLE', raceStartTime: null, countdownStartTime: null, scheduledGreenTime: null, countdownStage: 0 });
@@ -113,10 +113,10 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
           isRunning: false,
           isFinished: false,
           isLockedIn: false,
-          lastPenalty: cur.penalty ?? cur.lastPenalty,
-          lastFinishTimeMs: cur.finishTimeMs ?? cur.lastFinishTimeMs,
-          lastFinishRank: cur.finishRank ?? cur.lastFinishRank,
-          lastFalseStartDeltaMs: cur.falseStartDeltaMs || cur.lastFalseStartDeltaMs || 0,
+          lastPenalty: cur.penalty,
+          lastFinishTimeMs: cur.finishTimeMs,
+          lastFinishRank: cur.finishRank,
+          lastFalseStartDeltaMs: cur.falseStartDeltaMs,
           penalty: undefined,
           finishTimeMs: null,
           finishRank: null,
@@ -288,10 +288,10 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         penalty: undefined,
         finishTimeMs: null,
         finishRank: null,
-        lastPenalty: players[id]?.penalty ?? players[id]?.lastPenalty ?? undefined,
-        lastFinishTimeMs: players[id]?.finishTimeMs ?? players[id]?.lastFinishTimeMs ?? null,
-        lastFinishRank: players[id]?.finishRank ?? players[id]?.lastFinishRank ?? null,
-        lastFalseStartDeltaMs: players[id]?.falseStartDeltaMs ?? players[id]?.lastFalseStartDeltaMs ?? 0,
+        lastPenalty: players[id]?.penalty,
+        lastFinishTimeMs: players[id]?.finishTimeMs,
+        lastFinishRank: players[id]?.finishRank,
+        lastFalseStartDeltaMs: players[id]?.falseStartDeltaMs,
       };
     });
 

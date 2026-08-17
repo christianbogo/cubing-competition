@@ -30,12 +30,7 @@ function HostPageContent() {
 
   return (
     <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-amber-400 selection:text-slate-950 transition-colors duration-200">
-      <HeaderBar
-        isFullscreen={false}
-        onToggleFullscreen={() => {}}
-        onOpenAdmin={() => {}}
-        onOpenOverview={() => {}}
-      />
+      <HeaderBar />
       
       <main className="flex-1 w-full flex flex-col items-center justify-center py-6 z-20">
         <MatchSetupWizard />

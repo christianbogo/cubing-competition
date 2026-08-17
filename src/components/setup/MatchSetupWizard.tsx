@@ -25,6 +25,7 @@ import { useTournamentStore } from '@/store/tournamentStore';
 import { WCA_EVENTS } from '@/utils/scramble';
 import { DEFAULT_PLAYER_COLORS, TeamId, PlayerRole, BotMaturity } from '@/types/tournament';
 import { CubeOnlineLogo } from '@/components/display/CubeOnlineLogo';
+import { useAuth } from '@/context/AuthContext';
 
 export const ARENA_TIERS = [
   { rank: 'Iron', division: 'III', average: 180000, std: 25000, maturity: 0.20 },
@@ -126,6 +127,7 @@ export const MatchSetupWizard: React.FC = () => {
     addPlayer,
     removePlayer,
     updatePlayerName,
+    updatePlayerTimeNerf,
     updateSettings,
     startMatch,
   } = useTournamentStore();
@@ -136,6 +138,17 @@ export const MatchSetupWizard: React.FC = () => {
   const [newPlayerTeam, setNewPlayerTeam] = useState<TeamId>('RED');
 
   const [copiedPlayerId, setCopiedPlayerId] = useState<string | null>(null);
+  const { profile } = useAuth();
+
+  // Default the host player's name to the account nickname if set
+  React.useEffect(() => {
+    if (profile?.nickname) {
+      const hostPlayer = players.find((p) => p.role === 'HOST') || players[0];
+      if (hostPlayer && (!hostPlayer.name || hostPlayer.name === 'HOST')) {
+        updatePlayerName(hostPlayer.id, profile.nickname);
+      }
+    }
+  }, [profile?.nickname, players, updatePlayerName]);
 
   const isTeamMode = settings.tournamentMode === 'TEAMS';
 
@@ -330,13 +343,23 @@ export const MatchSetupWizard: React.FC = () => {
                               </button>
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2">
-                            <span>Slot #{index + 1}</span>
+                          <div className="flex items-center gap-4 text-[10px] text-slate-400 font-mono mt-1">
+                            <span className="flex items-center gap-1">Slot #{index + 1}</span>
                             {isHost && (
                               <span className="text-amber-600 dark:text-amber-400 font-bold">
                                 • Host Controller
                               </span>
                             )}
+                            <div className="flex items-center gap-2 border-l border-slate-300 dark:border-slate-700 pl-4">
+                              <span className="text-slate-500">Time Nerf (s):</span>
+                              <TextInputNumber
+                                min={0}
+                                max={600}
+                                value={((player.timeNerfMs || 0) / 1000).toFixed(1)}
+                                onChange={(val) => updatePlayerTimeNerf(player.id, Math.max(0, val * 1000))}
+                                className="w-16 bg-transparent border-b border-slate-300 dark:border-slate-700 focus:outline-none focus:border-amber-500 text-slate-900 dark:text-white"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -925,7 +948,8 @@ export const MatchSetupWizard: React.FC = () => {
             <button
               type="button"
               onClick={handleNext}
-              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-mono font-black transition-all shadow-md active:scale-95"
+              disabled={step === 1 && players.some(p => p.name.trim() === '')}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-mono font-black transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>Next Step</span>
               <ArrowRight className="w-3.5 h-3.5" />

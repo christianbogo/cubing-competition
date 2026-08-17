@@ -2,10 +2,17 @@ import { StateCreator } from 'zustand';
 import { TournamentStore } from '../tournamentStore';
 import { Player, TeamId, PlayerRole, BotConfig, DEFAULT_PLAYER_COLORS } from '@/types/tournament';
 
+const getInitialHostName = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('cubeonline_account_nickname') || 'HOST';
+  }
+  return 'HOST';
+};
+
 const DEFAULT_PLAYERS: Player[] = [
   {
     id: 'p1',
-    name: 'YOU',
+    name: getInitialHostName(),
     role: 'HOST',
     key: ' ',
     color: DEFAULT_PLAYER_COLORS[0].color,
@@ -70,6 +77,7 @@ export interface PlayerSlice {
   addPlayer: (name: string, team?: TeamId, role?: PlayerRole, botConfig?: BotConfig) => void;
   removePlayer: (id: string) => void;
   updatePlayerName: (id: string, name: string) => void;
+  updatePlayerTimeNerf: (id: string, nerfMs: number) => void;
   updatePlayerColor: (id: string, color: string, accentColor: string) => void;
   togglePlayerActive: (id: string) => void;
   reorderPlayers: (startIndex: number, endIndex: number) => void;
@@ -159,6 +167,12 @@ export const createPlayerSlice: StateCreator<TournamentStore, [['zustand/immer',
     set((state) => {
       const p = state.players.find((p) => p.id === id);
       if (p) p.name = name.toUpperCase().slice(0, 10);
+    });
+  },
+  updatePlayerTimeNerf: (id, nerfMs) => {
+    set((state) => {
+      const p = state.players.find((p) => p.id === id);
+      if (p) p.timeNerfMs = nerfMs;
     });
   },
   updatePlayerColor: (id, color, accentColor) => {

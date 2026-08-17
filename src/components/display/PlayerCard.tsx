@@ -152,7 +152,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 
             <div className="flex items-baseline gap-1 font-mono shrink-0">
               <span className="text-slate-900 dark:text-white font-black text-xs sm:text-sm">
-                {gamePoints}{pointsFloor ? `/${pointsFloor}` : ''}
+                {gamePoints}{!isTeamMode && pointsFloor ? `/${pointsFloor}` : ''}
               </span>
               {differentialLeadFraction && (
                 <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs">

@@ -146,22 +146,7 @@ export function useFirebaseHost() {
 
       // Only process if we aren't racing, or if it's an initial hold
       if (isHeld && tPlayers[playerId] && !tPlayers[playerId].isHeld) {
-        if (raceState === 'FINISHED') {
-          handleKeyDown(playerId, Date.now(), () => {
-            const solvesData: Record<string, { rawTimeMs: number; falseStartDeltaMs: number; penalty: 'NONE' | 'PLUS_2' | 'DNF' }> = {};
-            tourneyPlayers.filter(p => p.active).forEach(p => {
-              const tp = tPlayers[p.id];
-              solvesData[p.id] = {
-                rawTimeMs: tp?.finishTimeMs || tp?.rawTimeMs || 0,
-                falseStartDeltaMs: tp?.falseStartDeltaMs || 0,
-                penalty: tp?.penalty || 'NONE',
-              };
-            });
-            recordCompletedGame(solvesData);
-          });
-        } else {
-          handleKeyDown(playerId, Date.now());
-        }
+        handleKeyDown(playerId, Date.now());
       } else if (!isHeld && tPlayers[playerId] && tPlayers[playerId].isHeld) {
         handleKeyUp(playerId, Date.now());
       }
@@ -205,13 +190,43 @@ export function useFirebaseHost() {
 
     const presenceRef = ref(database, `matches/${matchId}/connectedPlayers`);
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handlePresenceUpdate = (snapshot: any) => {
       const val = snapshot.val();
+      const state = useTournamentStore.getState();
+      const prevGuests = state.connectedGuests;
+      
       if (val) {
-        useTournamentStore.getState().setConnectedGuests(Object.keys(val));
+        const newGuests = Object.keys(val);
+        state.setConnectedGuests(newGuests);
+        
+        // Find newly connected guests and make them active if they were benched
+        const newlyConnected = newGuests.filter(id => !prevGuests.includes(id));
+        newlyConnected.forEach(guestId => {
+          const p = state.players.find(player => player.id === guestId);
+          if (p && p.role === 'PLAYER' && !p.active) {
+            // Auto-reactivate the guest if they join back
+            state.togglePlayerActive(guestId);
+          }
+        });
+
+        // Find disconnected guests
+        const disconnected = prevGuests.filter(id => !newGuests.includes(id));
+        disconnected.forEach(guestId => {
+          window.dispatchEvent(new CustomEvent('guestDisconnected', { detail: { guestId } }));
+        });
+
+        // Sync colors
+        Object.keys(val).forEach(slotId => {
+          const data = val[slotId];
+          if (data && typeof data === 'object' && data.color && data.accentColor) {
+            state.updatePlayerColor(slotId, data.color, data.accentColor);
+          }
+        });
       } else {
-        useTournamentStore.getState().setConnectedGuests([]);
+        state.setConnectedGuests([]);
+        prevGuests.forEach(guestId => {
+          window.dispatchEvent(new CustomEvent('guestDisconnected', { detail: { guestId } }));
+        });
       }
     };
 
@@ -243,6 +258,33 @@ export function useFirebaseHost() {
            onDisconnect(matchRef).cancel().catch(() => {});
          });
       }
+    };
+  }, [matchId, isRoomActive]);
+
+  // 6. Listen for Guest Penalty Requests
+  useEffect(() => {
+    if (!isRoomActive || matchId === 'local' || !matchId) return;
+
+    const requestsRef = ref(database, `matches/${matchId}/penaltyRequests`);
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handlePenaltyRequest = (snapshot: any) => {
+      const data = snapshot.val();
+      const requestId = snapshot.key;
+      if (!data || !requestId) return;
+      
+      const { applyPenalty } = useTournamentStore.getState();
+      applyPenalty(data.gameId, data.playerId, data.penalty, data.roundId || undefined);
+      
+      import('firebase/database').then(({ remove }) => {
+        remove(ref(database, `matches/${matchId}/penaltyRequests/${requestId}`)).catch(() => {});
+      });
+    };
+
+    onChildAdded(requestsRef, handlePenaltyRequest);
+
+    return () => {
+      off(requestsRef, 'child_added', handlePenaltyRequest);
     };
   }, [matchId, isRoomActive]);
 }
@@ -352,7 +394,9 @@ export function useFirebaseGuest(matchId: string, slotId?: string) {
       // When we disconnect, remove our presence
       onDisconnect(presenceRef).remove().then(() => {
         // Now that the disconnect hook is ready, mark us as online
-        set(presenceRef, true).catch(err => console.error("Presence error", err));
+        const p = useTournamentStore.getState().players.find(p => p.id === slotId);
+        const colorData = p ? { color: p.color, accentColor: p.accentColor } : {};
+        set(presenceRef, { online: true, ...colorData }).catch(err => console.error("Presence error", err));
       }).catch(err => console.error("onDisconnect error", err));
     });
 

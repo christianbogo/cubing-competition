@@ -344,6 +344,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
               targetGames={settings.targetGames}
               playerCount={redPlayers.length}
               differentialLeadFraction={differentialData.redTeamFraction}
+              pointsFloor={pointsFloor}
             />
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 auto-rows-fr items-stretch">
               {redPlayers.map((p, idx) => renderPlayerCard(p, idx))}
@@ -362,6 +363,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
               targetGames={settings.targetGames}
               playerCount={bluePlayers.length}
               differentialLeadFraction={differentialData.blueTeamFraction}
+              pointsFloor={pointsFloor}
             />
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 auto-rows-fr items-stretch">
               {bluePlayers.map((p, idx) => renderPlayerCard(p, idx))}

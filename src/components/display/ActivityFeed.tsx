@@ -38,7 +38,25 @@ export const ActivityFeed: React.FC = () => {
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    
+    const handleGuestDisconnect = (e: CustomEvent<{ guestId: string }>) => {
+      const { players, addActivityItem } = useTournamentStore.getState();
+      const guest = players.find(p => p.id === e.detail.guestId);
+      if (guest) {
+        addActivityItem({
+          type: 'CHAT_MESSAGE',
+          playerName: 'System',
+          playerColor: 'text-slate-500',
+          message: `${guest.name} disconnected.`,
+        });
+      }
+    };
+    window.addEventListener('guestDisconnected', handleGuestDisconnect as EventListener);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      window.removeEventListener('guestDisconnected', handleGuestDisconnect as EventListener);
+    };
   }, []);
 
   const handleItemClick = (e: React.MouseEvent, item: ActivityFeedItem) => {
@@ -49,7 +67,21 @@ export const ActivityFeed: React.FC = () => {
   const handleApplyPenalty = (penalty: PenaltyType) => {
     if (!selectedItem || !selectedItem.playerId) return;
     const gameId = selectedItem.gameId || '';
-    applyPenalty(gameId, selectedItem.playerId, penalty);
+    const roundId = selectedItem.roundIndex !== undefined ? `round-${gameId}-${selectedItem.roundIndex + 1}` : undefined;
+    
+    const { localPlayerId, matchId: currentMatchId, players: currentPlayers } = useTournamentStore.getState();
+    const isHost = currentPlayers.find(p => p.id === localPlayerId)?.role === 'HOST';
+
+    if (isHost || currentMatchId === 'local' || !currentMatchId) {
+      applyPenalty(gameId, selectedItem.playerId, penalty, roundId);
+    } else {
+      push(ref(database, `matches/${currentMatchId}/penaltyRequests`), {
+        gameId,
+        playerId: selectedItem.playerId,
+        roundId: roundId || null,
+        penalty
+      });
+    }
     setSelectedItem(null);
   };
 
@@ -150,7 +182,10 @@ export const ActivityFeed: React.FC = () => {
               !!activeGameId &&
               item.gameId === activeGameId &&
               item.roundIndex === currentRoundIndex;
-            const isClickable = isLatestRoundSolve && !!item.playerId;
+              
+            const isHost = players.find(p => p.id === useTournamentStore.getState().localPlayerId)?.role === 'HOST';
+            const isMe = item.playerId === useTournamentStore.getState().localPlayerId;
+            const isClickable = item.type === 'SOLVE_FINISHED' && !!item.playerId && (isHost || (isMe && isLatestRoundSolve));
 
             return (
               <div
