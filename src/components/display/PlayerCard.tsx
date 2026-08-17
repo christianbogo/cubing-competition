@@ -30,6 +30,7 @@ interface PlayerCardProps {
   onClick?: () => void;
   isClickable?: boolean;
   differentialLeadFraction?: string;
+  isLocalPlayer?: boolean;
 }
 
 function getOrdinal(n?: number): string {
@@ -77,6 +78,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   onClick,
   isClickable = false,
   differentialLeadFraction,
+  isLocalPlayer = false,
 }) => {
   const timeRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +88,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
     let rafId: number;
     const loop = () => {
       if (timeRef.current) {
-        const currentMs = Math.max(0, performance.now() - raceStartTime);
+        const currentMs = Math.max(0, Date.now() - raceStartTime);
         timeRef.current.textContent = formatTime(currentMs, { penalty });
       }
       rafId = requestAnimationFrame(loop);
@@ -145,6 +147,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
               className={`text-sm sm:text-base font-black tracking-tight ${player.color} uppercase truncate max-w-[110px] sm:max-w-[150px]`}
             >
               {player.name}
+              {isLocalPlayer && <span className="ml-1.5 text-[10px] text-amber-500 font-mono tracking-wider">(YOU)</span>}
             </h3>
 
             <div className="flex items-baseline gap-1 font-mono shrink-0">

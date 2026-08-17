@@ -13,6 +13,7 @@ interface LeaderboardViewProps {
 export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
   const {
     players,
+    localPlayerId,
     sets,
     currentSetIndex,
     currentGameIndex,
@@ -39,6 +40,24 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
     playerName: string;
     currentPenalty: PenaltyType;
   } | null>(null);
+
+  const [liveTimeMs, setLiveTimeMs] = useState(0);
+
+  React.useEffect(() => {
+    let frameId: number;
+    const updateTime = () => {
+      if (raceState === 'RACING' && raceStartTime) {
+        setLiveTimeMs(Math.max(0, Date.now() - raceStartTime));
+        frameId = requestAnimationFrame(updateTime);
+      } else {
+        setLiveTimeMs(0);
+      }
+    };
+    if (raceState === 'RACING') {
+      frameId = requestAnimationFrame(updateTime);
+    }
+    return () => cancelAnimationFrame(frameId);
+  }, [raceState, raceStartTime]);
 
   const isTeamMode = settings.tournamentMode === 'TEAMS';
   const activePlayers = useMemo(() => players.filter((p) => p.active), [players]);
@@ -231,14 +250,14 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
     const isStandbyWithReference = raceState !== 'RACING' && !tp?.isRunning && !tp?.isFinished && ((tp?.lastFinishTimeMs !== null && tp?.lastFinishTimeMs !== undefined) || lastCompletedSolve !== undefined);
     const isFinishedDisplay = isFinishedThisRound || isSolveRecorded;
     const penalty: PenaltyType = isCurrentlyRunning ? 'NONE' : isFinishedDisplay ? (currentRoundSolve?.penalty || tp?.penalty || 'NONE') : isStandbyWithReference ? (tp?.lastPenalty || lastCompletedSolve?.penalty || 'NONE') : 'NONE';
-    const fsDelta = isCurrentlyRunning ? 0 : (tp?.falseStartDeltaMs || (isFinishedDisplay ? currentRoundSolve?.falseStartDeltaMs : lastCompletedSolve?.falseStartDeltaMs) || 0);
+    const fsDelta = isCurrentlyRunning ? 0 : (tp?.falseStartDeltaMs || (isFinishedDisplay ? currentRoundSolve?.falseStartDeltaMs : (tp?.lastFalseStartDeltaMs ?? lastCompletedSolve?.falseStartDeltaMs)) || 0);
     const fsPenaltyMs = fsDelta * settings.falseStartMultiplier;
     const plus2PenaltyMs = penalty === 'PLUS_2' ? 2000 : 0;
     let displayTimeMs = 0;
     let displayRank: number | undefined = undefined;
     let isDisplayFinished = false;
     if (isCurrentlyRunning) {
-      displayTimeMs = tp?.rawTimeMs || 0;
+      displayTimeMs = liveTimeMs;
       displayRank = undefined;
       isDisplayFinished = false;
     } else if (isFinishedThisRound) {
@@ -250,7 +269,15 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
       displayRank = liveRanksAndScores.ranks[player.id] ?? currentRoundSolve.rank ?? tp?.finishRank;
       isDisplayFinished = true;
     } else if (isStandbyWithReference) {
-      displayTimeMs = penalty === 'DNF' ? 0 : (tp?.lastFinishTimeMs ?? lastCompletedSolve?.finalTimeMs ?? 0);
+      if (penalty === 'DNF') {
+        displayTimeMs = 0;
+      } else if (tp?.lastFinishTimeMs !== null && tp?.lastFinishTimeMs !== undefined) {
+        displayTimeMs = tp.lastFinishTimeMs + fsPenaltyMs + plus2PenaltyMs;
+      } else if (lastCompletedSolve) {
+        displayTimeMs = lastCompletedSolve.finalTimeMs;
+      } else {
+        displayTimeMs = 0;
+      }
       displayRank = tp?.lastFinishRank ?? lastCompletedSolve?.rank ?? undefined;
       isDisplayFinished = true;
     }
@@ -260,6 +287,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = () => {
       <PlayerCard
         key={player.id}
         player={themedPlayer}
+        isLocalPlayer={player.id === localPlayerId}
         rank={displayRank}
         totalActive={totalActive}
         displayTimeMs={displayTimeMs}

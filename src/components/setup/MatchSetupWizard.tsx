@@ -53,6 +53,64 @@ export const ARENA_TIERS = [
   { rank: 'Grandmaster', division: 'I', average: 5000, std: 400, maturity: 0.005 },
 ];
 
+const TextInputNumber = ({ 
+  value, 
+  onChange, 
+  min, 
+  max, 
+  className 
+}: { 
+  value: string | number; 
+  onChange: (val: number) => void; 
+  min?: number; 
+  max?: number; 
+  className?: string;
+}) => {
+  const [internalVal, setInternalVal] = React.useState(value.toString());
+
+  React.useEffect(() => {
+    // only sync if it's not actively being edited and differs by value
+    if (Number(internalVal) !== Number(value)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInternalVal(value.toString());
+    }
+  }, [value]);
+
+  const parsed = Number(internalVal);
+  const isInvalid = isNaN(parsed) || internalVal.trim() === '' || (min !== undefined && parsed < min) || (max !== undefined && parsed > max);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInternalVal(e.target.value);
+    const p = Number(e.target.value);
+    if (!isNaN(p) && e.target.value.trim() !== '') {
+      onChange(p);
+    }
+  };
+
+  const handleBlur = () => {
+    let p = Number(internalVal);
+    if (isNaN(p) || internalVal.trim() === '') {
+      p = Number(value);
+      setInternalVal(value.toString());
+    } else {
+      if (min !== undefined && p < min) p = min;
+      if (max !== undefined && p > max) p = max;
+      setInternalVal(p.toString());
+      onChange(p);
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      value={internalVal}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      className={`${className} ${isInvalid ? '!border-red-500 focus:!border-red-500 !text-red-500 dark:!text-red-400' : ''}`}
+    />
+  );
+};
+
 export const MatchSetupWizard: React.FC = () => {
   const {
     matchId,
@@ -83,8 +141,16 @@ export const MatchSetupWizard: React.FC = () => {
 
   const handleAddPlayer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPlayerName.trim()) return;
-    addPlayer(newPlayerName.trim(), isTeamMode ? newPlayerTeam : undefined, newPlayerRole);
+    let finalName = newPlayerName.trim();
+    if (!finalName) {
+      if (newPlayerRole === 'BOT') {
+        const botNames = ['BOT ALPHA', 'BOT BETA', 'AUTO', 'CPU', 'CYBORG', 'MECH', 'CUBER-X', 'AI-SOLVER'];
+        finalName = botNames[Math.floor(Math.random() * botNames.length)];
+      } else {
+        return;
+      }
+    }
+    addPlayer(finalName, isTeamMode ? newPlayerTeam : undefined, newPlayerRole);
     setNewPlayerName('');
   };
 
@@ -237,18 +303,33 @@ export const MatchSetupWizard: React.FC = () => {
                           <span
                             className="px-2.5 py-1.5 rounded-xl border flex items-center justify-center font-mono font-black text-xs shrink-0 bg-amber-400 text-black border-amber-300 shadow-sm"
                           >
-                            SPACE (YOU)
+                            HOST
                           </span>
                         )}
 
                         <div className="min-w-0">
-                          <input
-                            type="text"
-                            maxLength={10}
-                            value={player.name}
-                            onChange={(e) => updatePlayerName(player.id, e.target.value)}
-                            className={`bg-transparent font-black text-sm sm:text-base uppercase tracking-wide focus:outline-none focus:border-b border-amber-500 ${displayNameColor}`}
-                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              maxLength={10}
+                              value={player.name}
+                              onChange={(e) => updatePlayerName(player.id, e.target.value)}
+                              className={`bg-transparent font-black text-sm sm:text-base uppercase tracking-wide focus:outline-none focus:border-b border-amber-500 ${displayNameColor}`}
+                            />
+                            {isBot && (
+                              <button
+                                type="button"
+                                onClick={() => updatePlayerBotConfig(player.id, { difficultyType: isArena ? 'CUSTOM' : 'ARENA' })}
+                                className={`shrink-0 text-[10px] font-bold font-mono px-2 py-0.5 rounded transition-colors ${
+                                  !isArena 
+                                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' 
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                }`}
+                              >
+                                Custom Weights
+                              </button>
+                            )}
+                          </div>
                           <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2">
                             <span>Slot #{index + 1}</span>
                             {isHost && (
@@ -262,7 +343,6 @@ export const MatchSetupWizard: React.FC = () => {
 
                       {/* Right: Role Selection & Team Dropdown */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        {/* Role Selector */}
                         <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-0.5">
                           {index === 0 ? (
                             <div className="px-2.5 py-1 text-xs font-mono font-bold text-amber-500">Host Controller</div>
@@ -278,16 +358,18 @@ export const MatchSetupWizard: React.FC = () => {
                               >
                                 Bot
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setPlayerRole(player.id, 'PLAYER')}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all ${isPlayer
-                                  ? 'bg-blue-500 text-white shadow-sm'
-                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                                  }`}
-                              >
-                                Player
-                              </button>
+                              {matchId !== 'local' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPlayerRole(player.id, 'PLAYER')}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all ${isPlayer
+                                    ? 'bg-blue-500 text-white shadow-sm'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                    }`}
+                                >
+                                  Player
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -320,52 +402,9 @@ export const MatchSetupWizard: React.FC = () => {
                     </div>
 
                     {/* Bot AI Configuration Details (Expanded for Bot participants) */}
-                    {isBot && (
+                    {isBot && !isArena && (
                       <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800/80 flex flex-col gap-3 text-xs font-mono">
-                        
-                        {/* Difficulty Type Selector */}
-                        <div className="flex items-center gap-2">
-                          <label className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-                            Difficulty Mode:
-                          </label>
-                          <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5">
-                            <button
-                              type="button"
-                              onClick={() => updatePlayerBotConfig(player.id, { difficultyType: 'ARENA' })}
-                              className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all ${isArena
-                                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                              }`}
-                            >
-                              Arena Target
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updatePlayerBotConfig(player.id, { difficultyType: 'CUSTOM' })}
-                              className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all ${!isArena
-                                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                              }`}
-                            >
-                              Custom Config
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Arena View Placeholder */}
-                        {isArena && (
-                          <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl p-3 border border-amber-200/50 dark:border-amber-900/50">
-                            <p className="text-amber-800 dark:text-amber-400 text-[11px]">
-                              Current Tier: <strong>{botConfig.arenaTier || 'Iron III'}</strong>
-                            </p>
-                            <p className="text-amber-700/70 dark:text-amber-500/70 text-[10px] mt-0.5">
-                              This bot&apos;s stats are managed in Step 1.5 using standardized competitive gaming tiers.
-                            </p>
-                          </div>
-                        )}
-
                         {/* Custom Bot Stats Form */}
-                        {!isArena && (
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {/* 1. Target Average Time */}
                         <div className="space-y-1">
@@ -373,18 +412,16 @@ export const MatchSetupWizard: React.FC = () => {
                             <Sliders className="w-3 h-3 text-amber-500" />
                             Average Time (sec):
                           </label>
-                          <input
-                            type="number"
-                            step={0.1}
+                          <TextInputNumber
                             min={1}
                             max={60}
                             value={(botConfig.averageTimeMs / 1000).toFixed(1)}
-                            onChange={(e) =>
+                            onChange={(val) =>
                               updatePlayerBotConfig(player.id, {
-                                averageTimeMs: Math.max(1000, Number(e.target.value) * 1000),
+                                averageTimeMs: Math.max(1000, val * 1000),
                               })
                             }
-                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
                           />
                         </div>
 
@@ -393,18 +430,16 @@ export const MatchSetupWizard: React.FC = () => {
                           <label className="text-[11px] text-slate-500 dark:text-slate-400">
                             Std Dev Variance (±sec):
                           </label>
-                          <input
-                            type="number"
-                            step={0.05}
+                          <TextInputNumber
                             min={0.1}
                             max={10}
                             value={(botConfig.stdDevMs / 1000).toFixed(2)}
-                            onChange={(e) =>
+                            onChange={(val) =>
                               updatePlayerBotConfig(player.id, {
-                                stdDevMs: Math.max(100, Number(e.target.value) * 1000),
+                                stdDevMs: Math.max(100, val * 1000),
                               })
                             }
-                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
                           />
                         </div>
 
@@ -432,10 +467,9 @@ export const MatchSetupWizard: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                    </div>
+                  )}
+                </div>
             );
           })}
             </div>
@@ -468,16 +502,18 @@ export const MatchSetupWizard: React.FC = () => {
                     >
                       Bot AI
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewPlayerRole('PLAYER')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${newPlayerRole === 'PLAYER'
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400'
-                        }`}
-                    >
-                      Player
-                    </button>
+                    {matchId !== 'local' && (
+                      <button
+                        type="button"
+                        onClick={() => setNewPlayerRole('PLAYER')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${newPlayerRole === 'PLAYER'
+                          ? 'bg-amber-500 text-slate-950 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                      >
+                        Player
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -685,17 +721,16 @@ export const MatchSetupWizard: React.FC = () => {
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono block">
                       Point Floor to Win Game:
                     </span>
-                    <input
-                      type="number"
+                    <TextInputNumber
                       min={5}
                       max={100}
                       value={settings.rankPointsFloor}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         updateSettings({
-                          rankPointsFloor: Math.max(5, Math.min(100, Number(e.target.value) || 5)),
+                          rankPointsFloor: Math.max(5, Math.min(100, val)),
                         })
                       }
-                      className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                      className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
                     />
                   </div>
                 ) : (
@@ -703,21 +738,16 @@ export const MatchSetupWizard: React.FC = () => {
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono block">
                       Winner Point Gap Threshold:
                     </span>
-                    <input
-                      type="number"
+                    <TextInputNumber
                       min={100}
                       max={10000}
-                      step={50}
                       value={settings.differentialGapThreshold}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         updateSettings({
-                          differentialGapThreshold: Math.max(
-                            100,
-                            Math.min(10000, Number(e.target.value) || 100)
-                          ),
+                          differentialGapThreshold: Math.max(100, Math.min(10000, val)),
                         })
                       }
-                      className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 transition-colors"
                     />
                   </div>
                 )}
@@ -860,24 +890,12 @@ export const MatchSetupWizard: React.FC = () => {
                         </div>
                         
                         <div className="flex items-center gap-2 w-full sm:max-w-[220px]">
-                          <input
-                            type="text"
-                            readOnly
-                            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/match/join/${matchId}?slot=${guest.id}`}
-                            className="w-full px-2 py-1 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] font-mono text-slate-500 truncate focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const url = `${window.location.origin}/match/join/${matchId}?slot=${guest.id}`;
-                              navigator.clipboard.writeText(url);
-                              setCopiedPlayerId(guest.id);
-                              setTimeout(() => setCopiedPlayerId(null), 2000);
-                            }}
-                            className="shrink-0 p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all shadow-sm active:scale-95"
-                          >
-                            {copiedPlayerId === guest.id ? <span className="text-[10px] font-bold px-1">Copied!</span> : <Copy className="w-3.5 h-3.5" />}
-                          </button>
+                          <div className="flex items-center justify-between w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-4">
+                              <span className="text-[11px] font-mono font-bold text-slate-500 uppercase tracking-wider">Room Code: <span className="text-amber-500 text-sm ml-1">{matchId}</span></span>
+                              <span className="text-[11px] font-mono font-bold text-slate-500 uppercase tracking-wider">Position: <span className="text-blue-500 text-sm ml-1">{players.findIndex(p => p.id === guest.id) + 1}</span></span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );

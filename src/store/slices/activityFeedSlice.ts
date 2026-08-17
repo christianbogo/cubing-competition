@@ -8,7 +8,7 @@ export interface ActivityFeedSlice {
   activityFeed: ActivityFeedItem[];
   toggleAdmin: (open?: boolean) => void;
   toggleActivityFeed: (open?: boolean) => void;
-  addActivityItem: (item: Omit<ActivityFeedItem, 'id' | 'timestamp'>) => void;
+  addActivityItem: (item: Omit<ActivityFeedItem, 'id' | 'timestamp'> & Partial<Pick<ActivityFeedItem, 'id' | 'timestamp'>>) => void;
   clearActivityFeed: () => void;
 }
 
@@ -29,10 +29,16 @@ export const createActivityFeedSlice: StateCreator<TournamentStore, [['zustand/i
   addActivityItem: (item) => {
     set((state) => {
       const newItem: ActivityFeedItem = {
+        id: item.id || `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: item.timestamp || Date.now(),
         ...item,
-        id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        timestamp: Date.now(),
       };
+      
+      // Prevent duplicate chat messages
+      if (state.activityFeed.some(feedItem => feedItem.id === newItem.id)) {
+        return;
+      }
+      
       state.activityFeed.unshift(newItem);
       if (state.activityFeed.length > 100) {
         state.activityFeed.pop();

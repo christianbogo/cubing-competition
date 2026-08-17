@@ -1,5 +1,6 @@
 import React from 'react';
-import { X, RotateCcw, LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { X, LogOut } from 'lucide-react';
 import { useTournamentStore } from '@/store/tournamentStore';
 import { useTimerStore } from '@/store/timerStore';
 
@@ -12,21 +13,26 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { cancelMatchToSetup, resetTournament } = useTournamentStore();
+  const router = useRouter();
+  const { resetTournament } = useTournamentStore();
   const { resetForNewRace } = useTimerStore();
 
   if (!isOpen) return null;
 
-  const handleRestartMatch = () => {
+  const handleEndMatch = () => {
+    const currentMatchId = useTournamentStore.getState().matchId;
+    if (currentMatchId && currentMatchId !== 'local') {
+      import('firebase/database').then(({ ref, remove }) => {
+        import('@/lib/firebase').then(({ database }) => {
+          remove(ref(database, `matches/${currentMatchId}`)).catch(e => console.error(e));
+        });
+      });
+    }
+
     resetForNewRace();
     resetTournament();
     onClose();
-  };
-
-  const handleExitToSetup = () => {
-    resetForNewRace();
-    cancelMatchToSetup();
-    onClose();
+    router.push('/');
   };
 
   return (
@@ -55,41 +61,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           </p>
 
           <div className="space-y-3 pt-2">
-            {/* Restart Entire Tournament */}
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-              <div className="flex items-center gap-2">
-                <RotateCcw className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <h4 className="font-bold text-amber-900 dark:text-amber-300 uppercase">
-                  Restart Entire Tournament
-                </h4>
-              </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Resets all sets, games, and solve scores to start a fresh match from 0-0.
-              </p>
-              <button
-                onClick={handleRestartMatch}
-                className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black uppercase transition-all shadow-sm active:scale-98"
-              >
-                Restart Tournament (0-0)
-              </button>
-            </div>
-
-            {/* Exit to Setup Menu */}
+            {/* End Match */}
             <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2">
               <div className="flex items-center gap-2">
                 <LogOut className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                 <h4 className="font-bold text-rose-900 dark:text-rose-300 uppercase">
-                  Exit to Setup Menu
+                  End Match
                 </h4>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Aborts the current match and returns to the pre-match tournament setup wizard.
+                Ends the current match and returns to the home page.
               </p>
               <button
-                onClick={handleExitToSetup}
+                onClick={handleEndMatch}
                 className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold uppercase transition-all shadow-sm active:scale-98"
               >
-                Exit to Setup Wizard
+                End Match
               </button>
             </div>
           </div>

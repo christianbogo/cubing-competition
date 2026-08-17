@@ -3,6 +3,8 @@ import { TournamentStore } from '../tournamentStore';
 import { Game, SetMatch, Solve, Round, PenaltyType, TeamId } from '@/types/tournament';
 import { generateWcaScramble } from '@/utils/scramble';
 import { formatTime } from '@/utils/formatters';
+import { auth } from '@/lib/firebase';
+import { saveMatch } from '@/lib/matchLibrary';
 
 export interface MatchSlice {
   matchId: string;
@@ -55,7 +57,7 @@ export interface MatchSlice {
 }
 
 export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', never]], [], MatchSlice> = (set, get) => ({
-  matchId: `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+  matchId: Math.floor(100000 + Math.random() * 900000).toString(),
   matchStatus: 'SETUP',
   isRoomActive: false,
   connectedGuests: [],
@@ -441,6 +443,21 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
 
     if (!matchWinnerId && !matchWinnerTeam) {
       get().generateNewScramble();
+    } else {
+      // Match completed!
+      set((draft) => { draft.matchStatus = 'COMPLETED'; });
+      const finalFinishedState = get();
+      if (auth.currentUser && !auth.currentUser.isAnonymous) {
+        saveMatch(
+          auth.currentUser.uid,
+          finalFinishedState.matchId,
+          finalFinishedState.sets,
+          finalFinishedState.players,
+          finalFinishedState.matchWinnerPlayerId,
+          finalFinishedState.matchWinnerTeamId,
+          finalFinishedState.settings
+        ).catch(console.error);
+      }
     }
 
     return {
@@ -685,7 +702,7 @@ export const createMatchSlice: StateCreator<TournamentStore, [['zustand/immer', 
 
   resetTournament: () => {
     set((state) => {
-      state.matchId = `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      state.matchId = Math.floor(100000 + Math.random() * 900000).toString();
       state.matchStatus = 'SETUP';
       state.isRoomActive = false;
       state.connectedGuests = [];

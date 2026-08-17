@@ -102,7 +102,8 @@ export interface ActivityFeedItem {
     | 'GAME_WON'
     | 'SET_WON'
     | 'MATCH_WON'
-    | 'RECORD_BROKEN';
+    | 'RECORD_BROKEN'
+    | 'CHAT_MESSAGE';
   playerId?: string;
   playerName?: string;
   playerColor?: string;

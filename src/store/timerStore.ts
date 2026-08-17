@@ -16,11 +16,12 @@ export interface PlayerTimerData {
   lastPenalty?: PenaltyType;
   lastFinishTimeMs: number | null;
   lastFinishRank: number | null;
+  lastFalseStartDeltaMs: number;
 }
 
 interface TimerStoreState {
   raceState: RaceState;
-  raceStartTime: number | null; // performance.now() when green light went off
+  raceStartTime: number | null; // Date.now() when green light went off
   countdownStartTime: number | null;
   scheduledGreenTime: number | null; // Target timestamp when green light will fire
   countdownStage: number; // 0, 1, 2, 3 (yellow lights)
@@ -71,6 +72,7 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         lastPenalty: existing[id]?.lastPenalty ?? undefined,
         lastFinishTimeMs: existing[id]?.lastFinishTimeMs ?? null,
         lastFinishRank: existing[id]?.lastFinishRank ?? null,
+        lastFalseStartDeltaMs: existing[id]?.lastFalseStartDeltaMs ?? 0,
       };
     });
     set({ players, raceState: 'IDLE', raceStartTime: null, countdownStartTime: null, scheduledGreenTime: null, countdownStage: 0 });
@@ -114,6 +116,7 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
           lastPenalty: cur.penalty ?? cur.lastPenalty,
           lastFinishTimeMs: cur.finishTimeMs ?? cur.lastFinishTimeMs,
           lastFinishRank: cur.finishRank ?? cur.lastFinishRank,
+          lastFalseStartDeltaMs: cur.falseStartDeltaMs || cur.lastFalseStartDeltaMs || 0,
           penalty: undefined,
           finishTimeMs: null,
           finishRank: null,
@@ -288,6 +291,7 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         lastPenalty: players[id]?.penalty ?? players[id]?.lastPenalty ?? undefined,
         lastFinishTimeMs: players[id]?.finishTimeMs ?? players[id]?.lastFinishTimeMs ?? null,
         lastFinishRank: players[id]?.finishRank ?? players[id]?.lastFinishRank ?? null,
+        lastFalseStartDeltaMs: players[id]?.falseStartDeltaMs ?? players[id]?.lastFalseStartDeltaMs ?? 0,
       };
     });
 

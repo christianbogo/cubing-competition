@@ -83,7 +83,7 @@ export function useKeyboardController() {
           const stillAllHeld = activePlayerIdsRef.current.every((id) => checkPlayers[id]?.isHeld);
 
           if (stillAllHeld) {
-            const now = performance.now();
+            const now = Date.now();
             const redPauseMs = 1000;
             const stageInterval = COUNTDOWN_STAGE_INTERVAL_MS;
             const randomPause = 600 + Math.random() * 1200;
@@ -123,7 +123,7 @@ export function useKeyboardController() {
   useEffect(() => {
     if (raceState !== 'DRAG_COUNTDOWN') return;
 
-    const startTime = performance.now();
+    const startTime = Date.now();
     const stageInterval = COUNTDOWN_STAGE_INTERVAL_MS;
     const randomPauseAfterStage3 = 600 + Math.random() * 1200;
     const totalDurationBeforeGreen = stageInterval * 2 + randomPauseAfterStage3;
@@ -152,7 +152,7 @@ export function useKeyboardController() {
 
     // Green Launch (at randomized delay after Stage 3)
     const greenTimer = setTimeout(() => {
-      const greenTime = performance.now();
+      const greenTime = Date.now();
       startRace(greenTime);
       soundEngine.playGoTone();
     }, totalDurationBeforeGreen);
@@ -203,16 +203,22 @@ export function useKeyboardController() {
   useEffect(() => {
     const handleKeyDownEvent = (e: KeyboardEvent) => {
       if (isAdminOpenRef.current) return;
+      if (e.code !== 'Space' && e.key !== ' ') return;
+      if (e.repeat) return;
+
       const target = e.target as HTMLElement | null;
       if (
         target &&
         (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
       ) {
-        return;
+        const val = (target as HTMLInputElement).value;
+        if (val === '') {
+          target.blur();
+          // Fall through to execute timer
+        } else {
+          return;
+        }
       }
-
-      if (e.code !== 'Space' && e.key !== ' ') return;
-      if (e.repeat) return;
 
       const host = hostPlayerRef.current;
       if (!host) return;
@@ -221,7 +227,7 @@ export function useKeyboardController() {
       const currentRaceState = useTimerStore.getState().raceState;
 
       if (currentRaceState === 'RACING') {
-        const rank = stopPlayer(host.id, performance.now());
+        const rank = stopPlayer(host.id, Date.now());
         if (rank > 0) {
           soundEngine.playFinishChime(rank);
           const tp = useTimerStore.getState().players[host.id];
@@ -259,7 +265,7 @@ export function useKeyboardController() {
           }
         }
       } else {
-        handleKeyDown(host.id, performance.now(), () => {
+        handleKeyDown(host.id, Date.now(), () => {
           useTournamentStore.getState().startNextGame();
         });
       }
@@ -267,6 +273,8 @@ export function useKeyboardController() {
 
     const handleKeyUpEvent = (e: KeyboardEvent) => {
       if (isAdminOpenRef.current) return;
+      if (e.code !== 'Space' && e.key !== ' ') return;
+
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -275,13 +283,11 @@ export function useKeyboardController() {
         return;
       }
 
-      if (e.code !== 'Space' && e.key !== ' ') return;
-
       const host = hostPlayerRef.current;
       if (!host) return;
 
       e.preventDefault();
-      const result = handleKeyUp(host.id, performance.now());
+      const result = handleKeyUp(host.id, Date.now());
       if (result.isFalseStart) {
         soundEngine.playFalseStart();
       }

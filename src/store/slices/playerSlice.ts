@@ -62,18 +62,23 @@ const DEFAULT_PLAYERS: Player[] = [
 
 export interface PlayerSlice {
   players: Player[];
+  localPlayerId: string | null;
+  setLocalPlayerId: (id: string | null) => void;
   setPlayerTeam: (playerId: string, team: TeamId) => void;
   setPlayerRole: (playerId: string, role: PlayerRole) => void;
   updatePlayerBotConfig: (playerId: string, config: Partial<BotConfig>) => void;
   addPlayer: (name: string, team?: TeamId, role?: PlayerRole, botConfig?: BotConfig) => void;
   removePlayer: (id: string) => void;
   updatePlayerName: (id: string, name: string) => void;
+  updatePlayerColor: (id: string, color: string, accentColor: string) => void;
   togglePlayerActive: (id: string) => void;
   reorderPlayers: (startIndex: number, endIndex: number) => void;
 }
 
 export const createPlayerSlice: StateCreator<TournamentStore, [['zustand/immer', never]], [], PlayerSlice> = (set) => ({
   players: DEFAULT_PLAYERS,
+  localPlayerId: null,
+  setLocalPlayerId: (id) => set((state) => { state.localPlayerId = id; }),
   setPlayerTeam: (playerId, team) => {
     set((state) => {
       const p = state.players.find((p) => p.id === playerId);
@@ -154,6 +159,15 @@ export const createPlayerSlice: StateCreator<TournamentStore, [['zustand/immer',
     set((state) => {
       const p = state.players.find((p) => p.id === id);
       if (p) p.name = name.toUpperCase().slice(0, 10);
+    });
+  },
+  updatePlayerColor: (id, color, accentColor) => {
+    set((state) => {
+      const p = state.players.find((p) => p.id === id);
+      if (p) {
+        p.color = color;
+        p.accentColor = accentColor;
+      }
     });
   },
   togglePlayerActive: (id) => {

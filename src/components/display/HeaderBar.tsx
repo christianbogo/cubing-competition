@@ -11,23 +11,24 @@ import {
   Activity,
   Trophy,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useTournamentStore } from '@/store/tournamentStore';
+import { useTimerStore } from '@/store/timerStore';
 import { CubeOnlineLogo } from './CubeOnlineLogo';
 import { ThemeToggle } from './ThemeToggle';
+import { HeaderAuth } from './HeaderAuth';
 
 interface HeaderBarProps {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
-  onOpenAdmin: () => void;
-  onOpenKeyGuide: () => void;
-  onOpenOverview: () => void;
+  onOpenAdmin?: () => void;
+  onOpenOverview?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   isFullscreen,
   onToggleFullscreen,
   onOpenAdmin,
-  onOpenKeyGuide,
   onOpenOverview,
 }) => {
   const {
@@ -36,7 +37,24 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     matchStatus,
     isActivityFeedOpen,
     toggleActivityFeed,
+    resetTournament,
+    players,
+    localPlayerId,
   } = useTournamentStore();
+  const { resetForNewRace } = useTimerStore();
+  const router = useRouter();
+
+  const isHost = players.find(p => p.id === localPlayerId)?.role === 'HOST';
+
+  const handleLogoClick = () => {
+    if (matchStatus === 'IN_PROGRESS') {
+      const confirmLeave = window.confirm("Are you sure you want to cancel the match?");
+      if (!confirmLeave) return;
+    }
+    resetForNewRace();
+    resetTournament();
+    router.push('/');
+  };
 
   return (
     <header
@@ -47,14 +65,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       }`}
     >
       {/* Brand Identity / Logo with responsive non-wrapping title */}
-      <div className="flex items-center gap-2.5 min-w-0">
+      <button 
+        onClick={handleLogoClick}
+        className="flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
+      >
         <CubeOnlineLogo className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" />
-        <div className="whitespace-nowrap font-mono font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-slate-100 uppercase">
+        <div className="whitespace-nowrap font-mono font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-slate-100 uppercase text-left">
           <span className="hidden sm:inline">Cube Online </span>
           <span className="inline sm:hidden">CO </span>
           <span className="text-amber-500 font-extrabold">Arena</span>
         </div>
-      </div>
+      </button>
 
       {/* Actions */}
       <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
@@ -70,26 +91,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </button>
         )}
 
-        {/* Theme Switcher - Hidden in Fullscreen Mode */}
-        {!isFullscreen && <ThemeToggle />}
+        {/* Theme Switcher & Auth - Hidden in Fullscreen Mode */}
+        {!isFullscreen && (
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <HeaderAuth />
+          </div>
+        )}
 
         {/* Hide Keybinds, Volume in Fullscreen mode */}
         {!isFullscreen && (
           <>
-            {matchStatus === 'IN_PROGRESS' && (
-              <>
-                {/* Key Guide Button */}
-                <button
-                  onClick={onOpenKeyGuide}
-                  title="Show keyboard controller mapping"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-mono transition-all active:scale-95 shadow-sm"
-                >
-                  <Keyboard className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Keybinds</span>
-                </button>
-              </>
-            )}
-
             {/* Sound Toggle Button */}
             <button
               onClick={() => updateSettings({ soundEnabled: !settings.soundEnabled })}
@@ -130,7 +142,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </button>
 
         {/* Lowkey Match Options Button */}
-        {matchStatus === 'IN_PROGRESS' && (
+        {matchStatus === 'IN_PROGRESS' && onOpenAdmin && isHost && (
           <button
             onClick={onOpenAdmin}
             title="Match Options"

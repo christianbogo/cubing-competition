@@ -57,7 +57,7 @@ export function useBotController() {
               currentHostTimer?.isHeld &&
               (currentRaceState === 'WAITING_FOR_ALL' || currentRaceState === 'IDLE')
             ) {
-              handleKeyDown(bot.id, performance.now());
+              handleKeyDown(bot.id, Date.now());
             }
             delete readyTimeoutsRef.current[bot.id];
           }, delay);
@@ -71,7 +71,7 @@ export function useBotController() {
       activeBots.forEach((bot) => {
         const botTimer = useTimerStore.getState().players[bot.id];
         if (botTimer?.isHeld) {
-          handleKeyUp(bot.id, performance.now());
+          handleKeyUp(bot.id, Date.now());
         }
       });
     }
@@ -105,11 +105,11 @@ export function useBotController() {
       if (sim && sim.falseStartDeltaMs > 0) {
         // Schedule bot to release early before green
         const earlyReleaseTime = scheduledGreen - sim.falseStartDeltaMs;
-        const delayUntilEarlyRelease = Math.max(50, earlyReleaseTime - performance.now());
+        const delayUntilEarlyRelease = Math.max(50, earlyReleaseTime - Date.now());
 
         const earlyTimeout = setTimeout(() => {
           if (useTimerStore.getState().raceState === 'DRAG_COUNTDOWN') {
-            const res = handleKeyUp(bot.id, performance.now());
+            const res = handleKeyUp(bot.id, Date.now());
             if (res.isFalseStart) {
               soundEngine.playFalseStart();
             }
@@ -139,7 +139,7 @@ export function useBotController() {
       return;
     }
 
-    const raceStart = useTimerStore.getState().raceStartTime || performance.now();
+    const raceStart = useTimerStore.getState().raceStartTime || Date.now();
     const currentTimerPlayers = useTimerStore.getState().players;
 
     activeBotsRef.current.forEach((bot) => {
@@ -157,7 +157,7 @@ export function useBotController() {
         }
 
         const finishTimestamp = raceStart + sim.targetSolveTimeMs;
-        const delayUntilFinish = Math.max(100, finishTimestamp - performance.now());
+        const delayUntilFinish = Math.max(100, finishTimestamp - Date.now());
 
         solveTimeoutsRef.current[bot.id] = setTimeout(() => {
           const currentRaceState = useTimerStore.getState().raceState;

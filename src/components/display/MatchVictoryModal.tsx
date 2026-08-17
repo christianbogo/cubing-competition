@@ -4,12 +4,14 @@ import { Trophy, RefreshCw, X, Shield } from 'lucide-react';
 import { useTournamentStore } from '@/store/tournamentStore';
 import { useTimerStore } from '@/store/timerStore';
 import { formatPoints } from '@/utils/formatters';
+import { useAuth } from '@/context/AuthContext';
 
 interface MatchVictoryModalProps {
   onClose: () => void;
 }
 
 export const MatchVictoryModal: React.FC<MatchVictoryModalProps> = ({ onClose }) => {
+  const { user } = useAuth();
   const {
     matchWinnerPlayerId,
     matchWinnerTeamId,
@@ -180,7 +182,7 @@ export const MatchVictoryModal: React.FC<MatchVictoryModalProps> = ({ onClose })
         </div>
 
         {/* New Match Action */}
-        <div className="mt-6 flex items-center justify-center gap-3">
+        <div className="mt-6 flex flex-col gap-3 items-center justify-center">
           <button
             onClick={handleNewTournament}
             className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 transition-all"
@@ -188,6 +190,12 @@ export const MatchVictoryModal: React.FC<MatchVictoryModalProps> = ({ onClose })
             <RefreshCw className="w-4 h-4" />
             Start New Tournament
           </button>
+          
+          {(!user || user.isAnonymous) && (
+            <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-2">
+              <span className="text-amber-600 dark:text-amber-400 font-bold">Want to save your stats?</span> Create an account from the header to unlock your Match Library!
+            </p>
+          )}
         </div>
       </div>
     </div>

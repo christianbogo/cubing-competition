@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
 import {
   X,
@@ -24,6 +25,7 @@ interface MatchOverviewModalProps {
 }
 
 export const MatchOverviewModal: React.FC<MatchOverviewModalProps> = ({ isOpen, onClose }) => {
+  const router = useRouter();
   const {
     players,
     sets,
@@ -161,16 +163,20 @@ export const MatchOverviewModal: React.FC<MatchOverviewModalProps> = ({ isOpen, 
     };
   });
 
-  const handleRestartMatch = () => {
+  const handleEndMatch = () => {
+    const currentMatchId = useTournamentStore.getState().matchId;
+    if (currentMatchId && currentMatchId !== 'local') {
+      import('firebase/database').then(({ ref, remove }) => {
+        import('@/lib/firebase').then(({ database }) => {
+          remove(ref(database, `matches/${currentMatchId}`)).catch(e => console.error(e));
+        });
+      });
+    }
+
     resetForNewRace();
     resetTournament();
     onClose();
-  };
-
-  const handleExitToSetup = () => {
-    resetForNewRace();
-    cancelMatchToSetup();
-    onClose();
+    router.push('/');
   };
 
   const modeSubtitle = `${
@@ -234,22 +240,14 @@ export const MatchOverviewModal: React.FC<MatchOverviewModalProps> = ({ isOpen, 
                 </p>
               </div>
 
-              {/* Match Controls Actions (Restart & Exit - No resume button) */}
+              {/* Match Controls Actions */}
               <div className="flex flex-wrap items-center justify-center gap-3 mt-4 pt-2">
                 <button
-                  onClick={handleRestartMatch}
-                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono font-black text-xs sm:text-sm uppercase tracking-wider transition-all shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Restart Tournament (0-0)</span>
-                </button>
-
-                <button
-                  onClick={handleExitToSetup}
+                  onClick={handleEndMatch}
                   className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-mono font-bold text-xs sm:text-sm uppercase tracking-wider transition-all shadow-lg shadow-rose-600/20 active:scale-95 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>Exit to Setup Wizard</span>
+                  <span>End Match</span>
                 </button>
               </div>
             </div>
