@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  ),
   title: 'Cube Online Arena | Live Speedcubing Competitions & Battle Arena',
   description:
     'Host and join real-time drag-race speedcubing tournaments, challenge friends online or locally, battle adaptive AI bots, and track live competition stats.',
