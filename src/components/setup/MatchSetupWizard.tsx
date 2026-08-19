@@ -54,17 +54,17 @@ export const ARENA_TIERS = [
   { rank: 'Grandmaster', division: 'I', average: 5000, std: 400, maturity: 0.005 },
 ];
 
-const TextInputNumber = ({ 
-  value, 
-  onChange, 
-  min, 
-  max, 
-  className 
-}: { 
-  value: string | number; 
-  onChange: (val: number) => void; 
-  min?: number; 
-  max?: number; 
+const TextInputNumber = ({
+  value,
+  onChange,
+  min,
+  max,
+  className
+}: {
+  value: string | number;
+  onChange: (val: number) => void;
+  min?: number;
+  max?: number;
   className?: string;
 }) => {
   const [internalVal, setInternalVal] = React.useState(value.toString());
@@ -333,11 +333,10 @@ export const MatchSetupWizard: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => updatePlayerBotConfig(player.id, { difficultyType: isArena ? 'CUSTOM' : 'ARENA' })}
-                                className={`shrink-0 text-[10px] font-bold font-mono px-2 py-0.5 rounded transition-colors ${
-                                  !isArena 
-                                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' 
+                                className={`shrink-0 text-[10px] font-bold font-mono px-2 py-0.5 rounded transition-colors ${!isArena
+                                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                                }`}
+                                  }`}
                               >
                                 Custom Weights
                               </button>
@@ -428,73 +427,73 @@ export const MatchSetupWizard: React.FC = () => {
                     {isBot && !isArena && (
                       <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800/80 flex flex-col gap-3 text-xs font-mono">
                         {/* Custom Bot Stats Form */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {/* 1. Target Average Time */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                            <Sliders className="w-3 h-3 text-amber-500" />
-                            Average Time (sec):
-                          </label>
-                          <TextInputNumber
-                            min={1}
-                            max={60}
-                            value={(botConfig.averageTimeMs / 1000).toFixed(1)}
-                            onChange={(val) =>
-                              updatePlayerBotConfig(player.id, {
-                                averageTimeMs: Math.max(1000, val * 1000),
-                              })
-                            }
-                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
-                          />
-                        </div>
-
-                        {/* 2. Standard Deviation */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] text-slate-500 dark:text-slate-400">
-                            Std Dev Variance (±sec):
-                          </label>
-                          <TextInputNumber
-                            min={0.1}
-                            max={10}
-                            value={(botConfig.stdDevMs / 1000).toFixed(2)}
-                            onChange={(val) =>
-                              updatePlayerBotConfig(player.id, {
-                                stdDevMs: Math.max(100, val * 1000),
-                              })
-                            }
-                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
-                          />
-                        </div>
-
-                        {/* 3. Maturity (Discipline / Penalty Probability) */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] text-slate-500 dark:text-slate-400">
-                            Maturity & Error Rate:
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={botConfig.maturity}
-                              onChange={(e) =>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {/* 1. Target Average Time */}
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                              <Sliders className="w-3 h-3 text-amber-500" />
+                              Average Time (sec):
+                            </label>
+                            <TextInputNumber
+                              min={1}
+                              max={60}
+                              value={(botConfig.averageTimeMs / 1000).toFixed(1)}
+                              onChange={(val) =>
                                 updatePlayerBotConfig(player.id, {
-                                  maturity: e.target.value as BotMaturity,
+                                  averageTimeMs: Math.max(1000, val * 1000),
                                 })
                               }
-                              className="w-full appearance-none pr-8 pl-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:border-amber-500"
-                            >
-                              <option value="NOVICE">Novice (12% +2, 8% False Start)</option>
-                              <option value="INTERMEDIATE">Intermediate (6% +2, 4% Early)</option>
-                              <option value="PRO">Pro (2% +2, 1% Early)</option>
-                              <option value="WORLD_CLASS">World Class (&lt;1% errors)</option>
-                            </select>
-                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                              className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
+                            />
+                          </div>
+
+                          {/* 2. Standard Deviation */}
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Std Dev Variance (±sec):
+                            </label>
+                            <TextInputNumber
+                              min={0.1}
+                              max={10}
+                              value={(botConfig.stdDevMs / 1000).toFixed(2)}
+                              onChange={(val) =>
+                                updatePlayerBotConfig(player.id, {
+                                  stdDevMs: Math.max(100, val * 1000),
+                                })
+                              }
+                              className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
+                            />
+                          </div>
+
+                          {/* 3. Maturity (Discipline / Penalty Probability) */}
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Maturity & Error Rate:
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={botConfig.maturity}
+                                onChange={(e) =>
+                                  updatePlayerBotConfig(player.id, {
+                                    maturity: e.target.value as BotMaturity,
+                                  })
+                                }
+                                className="w-full appearance-none pr-8 pl-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:border-amber-500"
+                              >
+                                <option value="NOVICE">Novice (12% +2, 8% False Start)</option>
+                                <option value="INTERMEDIATE">Intermediate (6% +2, 4% Early)</option>
+                                <option value="PRO">Pro (2% +2, 1% Early)</option>
+                                <option value="WORLD_CLASS">World Class (&lt;1% errors)</option>
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-            );
-          })}
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Add Participant Bar Moved to Bottom */}
@@ -588,7 +587,7 @@ export const MatchSetupWizard: React.FC = () => {
             const newIndex = Number(e.target.value);
             const tierData = ARENA_TIERS[newIndex];
             const tierName = `${tierData.rank} ${tierData.division}`;
-            
+
             // Apply to all arena bots
             players.forEach((p) => {
               if (p.role === 'BOT' && (!p.botConfig?.difficultyType || p.botConfig.difficultyType === 'ARENA')) {
@@ -626,7 +625,7 @@ export const MatchSetupWizard: React.FC = () => {
                         {currentTierName}
                       </span>
                     </div>
-                    
+
                     <input
                       type="range"
                       min={0}
@@ -635,7 +634,7 @@ export const MatchSetupWizard: React.FC = () => {
                       onChange={handleSliderChange}
                       className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
                     />
-                    
+
                     <div className="flex justify-between text-[10px] font-mono text-slate-400 font-bold uppercase px-1">
                       <span>Beginner (Iron)</span>
                       <span>Elite (Grandmaster)</span>
@@ -663,7 +662,7 @@ export const MatchSetupWizard: React.FC = () => {
                       </strong>
                     </div>
                   </div>
-                  
+
                   <div className="text-center text-xs text-slate-500 dark:text-slate-400 font-mono mt-2">
                     <span className="inline-flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" />
@@ -911,7 +910,7 @@ export const MatchSetupWizard: React.FC = () => {
                             {isConnected ? 'Connected' : 'Waiting...'}
                           </span>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 w-full sm:max-w-[220px]">
                           <div className="flex items-center justify-between w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
                             <div className="flex items-center gap-4">
