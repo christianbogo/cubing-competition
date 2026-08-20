@@ -334,8 +334,8 @@ export const MatchSetupWizard: React.FC = () => {
                                 type="button"
                                 onClick={() => updatePlayerBotConfig(player.id, { difficultyType: isArena ? 'CUSTOM' : 'ARENA' })}
                                 className={`shrink-0 text-[10px] font-bold font-mono px-2 py-0.5 rounded transition-colors ${!isArena
-                                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                                   }`}
                               >
                                 Custom Weights
